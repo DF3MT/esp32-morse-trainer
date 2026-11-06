@@ -183,6 +183,11 @@ void BleManager::sendChar(char c) {
                     keycode = 0x26;
                     modifiers = 0x02;
                     break;
+                case '@':
+                    // German QWERTZ: AltGr + Q
+                    keycode = 0x14; // Key 'Q'
+                    modifiers = 0x40; // AltGr (Right Alt)
+                    break;
                 case '\b':
                     keycode = 0x2a; // Backspace
                     modifiers = 0x00;
@@ -275,6 +280,11 @@ void BleManager::sendChar(char c) {
                     keycode = 0x27;
                     modifiers = 0x02;
                     break;
+                case '@':
+                    // US QWERTY: Shift + 2
+                    keycode = 0x1f; // Key '2'
+                    modifiers = 0x02; // Shift
+                    break;
                 case '\b':
                     keycode = 0x2a; // Backspace
                     modifiers = 0x00;
@@ -286,6 +296,7 @@ void BleManager::sendChar(char c) {
         }
     }
 
+    Serial.printf("[BLE] sendChar '%c' (0x%02X) -> code=0x%02X, mod=0x%02X\n", c, (uint8_t)c, keycode, modifiers);
     sendRawKey(keycode, modifiers);
 }
 

@@ -68,6 +68,7 @@ void onElement(KeyerElement e) {
 
 // Character decoded → append to text buffer
 void onChar(char c) {
+    Serial.printf("[MAIN] onChar: '%c' (0x%02X)\n", c, (uint8_t)c);
     portENTER_CRITICAL(&textMux);
     size_t len = strlen(decodedText);
 
