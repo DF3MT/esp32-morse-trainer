@@ -41,6 +41,14 @@ Designed for both amateur radio operators honing high-speed CW skills (up to 40 
     * **Spruchz.**: Prosigns sent without pause (`<SK>`, `<AR>`, `<BT>`, `<AS>`, `<KN>`, `<KA>`, `<BK>`, `<VE>`, `<HH>`, `<SOS>`).
     * **Q-Codes**: Frequently used Q-signals (`QTH`, `QSL`, `QSO`, `QRP`, `QRZ`, `QRM`, `QRN`, `QSY`, `QRQ`, `QRS`).
   * Multi-character keying validation with dynamic feedback (`RICHTIG!` / `FALSCH`) and multi-element Morse pattern guide.
+* **Full-Screen Boot Splash Screen**:
+  * Shows prominent **`DF3MT`** callsign (52px tall), website `https://df3mt.de`, repository URL `github.com/DF3MT/esp32-morse-trainer`, and subtitle at cold boot.
+  * Held for 1.8 seconds, or skipped instantly on any paddle tap or knob interaction.
+* **Intelligent Deep Sleep & Low-Power Standby**:
+  * Automatically enters ESP32 ultra-low-power deep sleep after **2 minutes of inactivity** (configurable in menu: `Aus`, `1 Min`, `2 Min`, `5 Min`, `10 Min`).
+  * Powers down ST7789 display controller (`SLPIN`) and turns off backlight to minimize battery drain (<15 µA).
+  * Shows friendly standby notice ("DEEP SLEEP... Knopf drücken zum Aufwecken").
+  * Instant hardware wakeup via Rotary Encoder push button (`PIN_ENC_SW` on RTC GPIO 17) with audio wake chirp.
 * **Rotary Encoder Menu System (KY-040)**:
   * Fully configurable on the fly via rotary encoder turn & click.
   * Live parameter adjustments with instant audio/visual preview.
@@ -131,7 +139,8 @@ Navigate by turning the knob, click to edit/toggle, click again to confirm and s
 10. **BLE-Layout**: Select keyboard layout (`DE (QWERTZ)` for German systems, `US (QWERTY)` for US systems).
 11. **Übungssatz**: Training set (`Koch-Methode`, `Nur Buchstaben`, `Nur Ziffern`, `Alle Zeichen`, `Q-Codes`, `QSO-Abk.`, `Spruchz.`).
 12. **Koch-Stufe**: Progressive lesson level (Level 1 to 40).
-13. **< Zurueck**: Exit menu and persist all settings to Flash.
+13. **Auto-Standby**: Inactivity timeout before entering Deep Sleep (`Aus`, `1 Min`, `2 Min`, `5 Min`, `10 Min`). Default: 2 Min.
+14. **< Zurueck**: Exit menu and persist all settings to Flash.
 
 ---
 

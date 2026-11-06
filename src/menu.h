@@ -38,6 +38,7 @@ struct Settings {
     BleLayout   bleLayout    = BleLayout::GERMAN_DE;// Tastaturlayout: DE (QWERTZ) / US (QWERTY)
     TrainingSet trainingSet  = TrainingSet::KOCH;
     uint8_t     kochLevel    = 4;                  // 1 .. 40
+    uint8_t     sleepTimeoutMin = SLEEP_TIMEOUT_DEFAULT_MIN; // 0 = Aus, 1 = 1 Min, 2 = 2 Min, 5 = 5 Min, 10 = 10 Min
 };
 
 class MenuController {
@@ -79,6 +80,7 @@ private:
         ITEM_BLE_LAYOUT,
         ITEM_TRAIN_SET,
         ITEM_KOCH_LVL,
+        ITEM_SLEEP_TIMEOUT,
         ITEM_BACK,
         ITEM_COUNT
     };

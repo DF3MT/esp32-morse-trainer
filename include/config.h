@@ -40,6 +40,11 @@
 #define DECODED_CHARS_MAX   128   // Extended buffer for multi-line scrolling (holds 8+ lines of history)
 
 // ============================================================
+// Power Management & Deep Sleep
+// ============================================================
+#define SLEEP_TIMEOUT_DEFAULT_MIN   2      // 2 minutes inactivity timeout
+
+// ============================================================
 // FreeRTOS task stack sizes
 // ============================================================
 #define KEYER_TASK_STACK   4096

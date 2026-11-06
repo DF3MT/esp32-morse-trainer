@@ -15,21 +15,11 @@ void DisplayManager::begin() {
     // 2. Init ST7789 TFT
     _tft.init();
     _tft.setRotation(1);   // Landscape: 240 wide x 135 tall
-    _tft.fillScreen(C_BG);
 
-    // Show instant splash directly on TFT to prove screen hardware is working
-    _tft.fillRect(0, 0, 240, 20, C_BAR);
-    _tft.setTextColor(C_ACCENT, C_BAR);
-    _tft.setTextFont(2);
-    _tft.setCursor(4, 3);
-    _tft.print("MORSE TRAINER");
+    // 3. Show full-screen DF3MT boot splash screen
+    showSplashScreen();
 
-    _tft.setTextColor(C_FG, C_BG);
-    _tft.setTextFont(4);
-    _tft.setCursor(20, 50);
-    _tft.print("Initialisiere...");
-
-    // 3. Try to allocate full-screen sprite (64.8 KB contiguous RAM)
+    // 4. Try to allocate full-screen sprite (64.8 KB contiguous RAM)
     void* sprPtr = _spr.createSprite(240, 135);
     _useSprite = (sprPtr != nullptr);
 
@@ -43,6 +33,44 @@ void DisplayManager::begin() {
     }
 
     _begun = true;
+}
+
+// ============================================================
+// Full-screen Boot Splash Screen ("DF3MT", df3mt.de, github)
+// ============================================================
+void DisplayManager::showSplashScreen() {
+    _tft.fillScreen(C_BG);
+
+    // Top & bottom accent border lines (Cyan)
+    _tft.drawFastHLine(8, 4, 224, C_ACCENT);
+    _tft.drawFastHLine(8, 130, 224, C_ACCENT);
+
+    // Main Callsign "DF3MT" — 52px tall (Font 4, size 2)
+    _tft.setTextFont(4);
+    _tft.setTextSize(2);
+    _tft.setTextColor(C_FG, C_BG);
+    int callWidth = _tft.textWidth("DF3MT", 4) * 2;
+    int callX = (240 - callWidth) / 2;
+    _tft.setCursor(callX, 12);
+    _tft.print("DF3MT");
+    _tft.setTextSize(1); // Reset size back to 1
+
+    // Subtle divider line
+    _tft.drawFastHLine(24, 68, 192, 0x2945);
+
+    // URL 1: https://df3mt.de (Cyan, Font 2)
+    _tft.setTextFont(2);
+    _tft.setTextColor(C_ACCENT, C_BG);
+    _tft.drawCentreString("https://df3mt.de", 120, 74, 2);
+
+    // URL 2: GitHub URL (Yellow, Font 1)
+    _tft.setTextFont(1);
+    _tft.setTextColor(0xFFE0, C_BG);
+    _tft.drawCentreString("github.com/DF3MT/esp32-morse-trainer", 120, 96, 1);
+
+    // Subtitle: CW Trainer & BLE Keyer (Light grey, Font 1)
+    _tft.setTextColor(C_DIM, C_BG);
+    _tft.drawCentreString("CW MORSE TRAINER & BLE KEYER", 120, 112, 1);
 }
 
 void DisplayManager::setBrightness(uint8_t val) {
@@ -59,6 +87,59 @@ void DisplayManager::setBrightness(uint8_t val) {
         ledcAttachPin(PIN_TFT_BL, BL_CHANNEL);
         ledcWrite(BL_CHANNEL, val);
     }
+}
+
+// ============================================================
+// Sleep screen & low-power display shutdown
+// ============================================================
+void DisplayManager::showSleepScreen() {
+    if (!_begun) return;
+    TFT_eSPI& target = _useSprite ? (TFT_eSPI&)_spr : _tft;
+
+    if (_useSprite) {
+        _spr.fillSprite(C_BG);
+    } else {
+        _tft.fillScreen(C_BG);
+    }
+
+    // Top status bar
+    target.fillRect(0, 0, 240, 20, C_BAR);
+    target.setTextColor(C_WARN, C_BAR);
+    target.setTextFont(2);
+    target.setCursor(4, 3);
+    target.print("STANDBY-MODUS");
+
+    // Title
+    target.setTextFont(4);
+    target.setTextColor(C_FG, C_BG);
+    target.setCursor(20, 34);
+    target.print("DEEP SLEEP");
+
+    // Hint: How to wake up
+    target.setTextFont(2);
+    target.setTextColor(C_ACCENT, C_BG);
+    target.setCursor(12, 68);
+    target.print("Drehknopf druecken zum Aufwecken");
+
+    target.setTextColor(C_DIM, C_BG);
+    target.setCursor(75, 98);
+    target.print("73 de DF3MT");
+
+    if (_useSprite) {
+        _spr.pushSprite(0, 0);
+    }
+}
+
+void DisplayManager::sleep() {
+    if (!_begun) return;
+    // Detach PWM and force backlight LOW (OFF)
+    ledcDetachPin(PIN_TFT_BL);
+    pinMode(PIN_TFT_BL, OUTPUT);
+    digitalWrite(PIN_TFT_BL, LOW);
+
+    // Send ST7789 sleep-in command (0x10) to minimize display controller draw
+    _tft.writecommand(0x10);
+    delay(5);
 }
 
 // ============================================================

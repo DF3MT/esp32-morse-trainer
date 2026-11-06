@@ -30,6 +30,9 @@ public:
     DisplayManager();
     void begin();
 
+    // Full-screen Boot Splash
+    void showSplashScreen();
+
     // Decoded text screen — shown during free keying
     void showDecodeScreen(const char* text, int wpm, bool autoMode, bool autoReady, bool keyDown, bool bleEnabled = false, bool bleConnected = false);
 
@@ -41,6 +44,10 @@ public:
 
     // Score screen
     void showScoreScreen(int correct, int total, int avgWpm);
+
+    // Deep Sleep & Standby
+    void showSleepScreen();
+    void sleep();
 
     // Backlight (0–255)
     void setBrightness(uint8_t val);

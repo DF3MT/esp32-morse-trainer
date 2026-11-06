@@ -176,6 +176,19 @@ void MenuController::handleMenuNavigation() {
                 _encoder.setEncoderValue(_settings.kochLevel);
                 break;
 
+            case ITEM_SLEEP_TIMEOUT: {
+                _isEditing = true;
+                _encoder.setBoundaries(0, 4, false);
+                long curIdx = 2; // Default 2 Min (index 2)
+                if (_settings.sleepTimeoutMin == 0) curIdx = 0;
+                else if (_settings.sleepTimeoutMin == 1) curIdx = 1;
+                else if (_settings.sleepTimeoutMin == 2) curIdx = 2;
+                else if (_settings.sleepTimeoutMin == 5) curIdx = 3;
+                else if (_settings.sleepTimeoutMin == 10) curIdx = 4;
+                _encoder.setEncoderValue(curIdx);
+                break;
+            }
+
             default:
                 break;
         }
@@ -223,6 +236,13 @@ void MenuController::handleMenuEditing() {
             case ITEM_KOCH_LVL:
                 _settings.kochLevel = (uint8_t)constrain(val, 1L, 40L);
                 break;
+
+            case ITEM_SLEEP_TIMEOUT: {
+                static const uint8_t opts[] = { 0, 1, 2, 5, 10 };
+                long idx = constrain(val, 0L, 4L);
+                _settings.sleepTimeoutMin = opts[idx];
+                break;
+            }
 
             default:
                 break;
@@ -332,7 +352,16 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
     snprintf(viewItems[ITEM_KOCH_LVL].value, sizeof(viewItems[ITEM_KOCH_LVL].value), "Stufe %d", _settings.kochLevel);
     viewItems[ITEM_KOCH_LVL].isAction = false;
 
-    // 10. Back / Exit
+    // 10. Sleep Timeout
+    viewItems[ITEM_SLEEP_TIMEOUT].label = "Auto-Standby";
+    if (_settings.sleepTimeoutMin == 0) {
+        snprintf(viewItems[ITEM_SLEEP_TIMEOUT].value, sizeof(viewItems[ITEM_SLEEP_TIMEOUT].value), "Aus");
+    } else {
+        snprintf(viewItems[ITEM_SLEEP_TIMEOUT].value, sizeof(viewItems[ITEM_SLEEP_TIMEOUT].value), "%d Min", _settings.sleepTimeoutMin);
+    }
+    viewItems[ITEM_SLEEP_TIMEOUT].isAction = false;
+
+    // 11. Back / Exit
     viewItems[ITEM_BACK].label = "< Zurueck";
     viewItems[ITEM_BACK].value[0] = '\0';
     viewItems[ITEM_BACK].isAction = true;
@@ -404,6 +433,7 @@ void MenuController::saveSettings() {
         prefs.putUChar("blelay", (uint8_t)_settings.bleLayout);
         prefs.putInt("tset",   (int)_settings.trainingSet);
         prefs.putUChar("koch", _settings.kochLevel);
+        prefs.putUChar("sleep", _settings.sleepTimeoutMin);
         prefs.end();
     }
 }
@@ -423,6 +453,7 @@ void MenuController::loadSettings() {
         _settings.bleLayout   = (BleLayout)prefs.getUChar("blelay", (uint8_t)BleLayout::GERMAN_DE);
         _settings.trainingSet = (TrainingSet)prefs.getInt("tset", (int)TrainingSet::KOCH);
         _settings.kochLevel   = prefs.getUChar("koch",   4);
+        _settings.sleepTimeoutMin = prefs.getUChar("sleep", SLEEP_TIMEOUT_DEFAULT_MIN);
         prefs.end();
     }
 }

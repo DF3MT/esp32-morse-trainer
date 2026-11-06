@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <esp_sleep.h>
+#include <driver/rtc_io.h>
 #include "config.h"
 #include "sidetone.h"
 #include "keyer.h"
@@ -14,6 +16,48 @@ IambicKeyer     keyer(IambicMode::MODE_A, WPM_DEFAULT);
 MorseDecoder    decoder;
 DisplayManager  display;
 MenuController  menu(keyer, display);
+
+// Inactivity timer & Deep Sleep
+static volatile unsigned long lastActivityMs = 0;
+
+static void resetInactivityTimer() {
+    lastActivityMs = millis();
+}
+
+static void enterDeepSleep() {
+    Serial.println("[PWR] Entering Deep Sleep due to 2 minutes of inactivity...");
+
+    // 1. Show sleep message on display
+    display.showSleepScreen();
+    vTaskDelay(1500 / portTICK_PERIOD_MS);
+
+    // 2. Shut down peripherals
+    Sidetone::off();
+    BleManager::end();
+    display.sleep();
+
+    // 3. Configure RTC GPIO wakeup on Rotary Encoder Button (PIN_ENC_SW = GPIO 27)
+    // GPIO 27 is active-LOW (pulled to GND on click)
+    rtc_gpio_init((gpio_num_t)PIN_ENC_SW);
+    rtc_gpio_set_direction((gpio_num_t)PIN_ENC_SW, RTC_GPIO_MODE_INPUT_ONLY);
+    rtc_gpio_pullup_en((gpio_num_t)PIN_ENC_SW);
+    rtc_gpio_pulldown_dis((gpio_num_t)PIN_ENC_SW);
+    esp_sleep_enable_ext0_wakeup((gpio_num_t)PIN_ENC_SW, 0); // 0 = LOW
+
+    // 4. Ensure backlight GPIO 4 stays low during sleep
+    rtc_gpio_init((gpio_num_t)PIN_TFT_BL);
+    rtc_gpio_set_direction((gpio_num_t)PIN_TFT_BL, RTC_GPIO_MODE_OUTPUT_ONLY);
+    rtc_gpio_set_level((gpio_num_t)PIN_TFT_BL, 0);
+
+    // Wait until button is released before entering sleep so it doesn't wake immediately
+    while (digitalRead(PIN_ENC_SW) == LOW) {
+        delay(10);
+    }
+    delay(50);
+
+    Serial.println("[PWR] Deep sleep started. Wakeup via Rotary Encoder Button.");
+    esp_deep_sleep_start();
+}
 
 // Decoded text ring buffer (last DECODED_CHARS_MAX chars)
 static char decodedText[DECODED_CHARS_MAX + 1] = "";
@@ -95,6 +139,7 @@ static void getNextTrainingTarget(char* outTarget, size_t maxLen) {
 
 // Element emitted by keyer → push to decoder
 void onElement(KeyerElement e) {
+    resetInactivityTimer();
     decoder.push(e);
     displayDirty = true;
 }
@@ -102,6 +147,7 @@ void onElement(KeyerElement e) {
 // Token decoded (character, prosign, or space) → append to text buffer & BLE
 void onToken(const char* token) {
     if (!token || !token[0]) return;
+    resetInactivityTimer();
     Serial.printf("[MAIN] onToken: '%s'\n", token);
 
     portENTER_CRITICAL(&textMux);
@@ -178,6 +224,9 @@ void onToken(const char* token) {
 void keyerTask(void* pvParams) {
     for (;;) {
         keyer.update();
+        if (keyer.isKeyDown()) {
+            resetInactivityTimer();
+        }
         decoder.tick(keyer.getT(), keyer.isKeyDown());
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
@@ -210,6 +259,22 @@ void uiTask(void* pvParams) {
         if (bleConn != lastBleConn) {
             displayDirty = true;
             lastBleConn = bleConn;
+        }
+
+        // Reset inactivity timer on any user interaction
+        if (inMenu || keyDown || wpm != lastWpm ||
+            digitalRead(PIN_DIT) == LOW || digitalRead(PIN_DAH) == LOW ||
+            digitalRead(PIN_ENC_SW) == LOW) {
+            resetInactivityTimer();
+        }
+
+        // Deep Sleep Inactivity Check (only outside menu)
+        uint8_t sleepMin = menu.settings().sleepTimeoutMin;
+        if (sleepMin > 0 && !inMenu) {
+            unsigned long timeoutMs = (unsigned long)sleepMin * 60000UL;
+            if (millis() - lastActivityMs >= timeoutMs) {
+                enterDeepSleep();
+            }
         }
 
         if (!inMenu) {
@@ -277,6 +342,17 @@ void uiTask(void* pvParams) {
 void setup() {
     Serial.begin(115200);
 
+    // Check wakeup reason from Deep Sleep
+    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+    if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0) {
+        Serial.println("[PWR] Woken up from Deep Sleep by Rotary Encoder Button!");
+        // Wait until button is released so it doesn't open the menu right away
+        while (digitalRead(PIN_ENC_SW) == LOW) {
+            delay(10);
+        }
+        delay(80); // Debounce button release
+    }
+
     // Paddle pins
     pinMode(PIN_DIT, INPUT_PULLUP);
     pinMode(PIN_DAH, INPUT_PULLUP);
@@ -287,8 +363,23 @@ void setup() {
     // Sidetone
     Sidetone::begin(PIN_BUZZER, SIDETONE_HZ);
 
+    if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0) {
+        Sidetone::playBeep(50); // Friendly wakeup chirp
+    }
+
     // Display
     display.begin();
+
+    // On cold boot, hold splash screen for ~1.8s (or until any user input)
+    if (wakeup_reason != ESP_SLEEP_WAKEUP_EXT0) {
+        unsigned long splashStart = millis();
+        while (millis() - splashStart < 1800) {
+            if (digitalRead(PIN_DIT) == LOW || digitalRead(PIN_DAH) == LOW || digitalRead(PIN_ENC_SW) == LOW) {
+                break;
+            }
+            delay(10);
+        }
+    }
 
     // Menu (loads settings from NVS, applies to keyer & hardware)
     menu.begin();
@@ -308,6 +399,8 @@ void setup() {
     challenge = {};
     strncpy(challenge.target, trainingTarget, sizeof(challenge.target) - 1);
     challenge.target[sizeof(challenge.target) - 1] = '\0';
+
+    resetInactivityTimer();
 
     // Start FreeRTOS tasks
     xTaskCreatePinnedToCore(keyerTask, "Keyer", KEYER_TASK_STACK, nullptr, 10, nullptr, 0);
