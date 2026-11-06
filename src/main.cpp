@@ -217,7 +217,7 @@ void setup() {
     menu.begin();
 
     // Bluetooth Low Energy HID Keyboard
-    BleManager::begin(menu.settings().bleKeyboard);
+    BleManager::begin(menu.settings().bleKeyboard, menu.settings().bleLayout);
 
     // Register callbacks
     keyer.onElement(onElement);

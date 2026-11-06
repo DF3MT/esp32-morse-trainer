@@ -4,6 +4,7 @@
 #include "config.h"
 #include "keyer.h"
 #include "display.h"
+#include "ble_manager.h"
 
 // ============================================================
 // MenuController — Voll konfigurierbar über Rotary Encoder
@@ -32,6 +33,7 @@ struct Settings {
     uint8_t     sidetoneVol  = 100;                // 0 .. 100 % (100% = max. Leistung bei 50% PWM Duty)
     uint8_t     brightness   = 80;                 // 10 .. 100 %
     bool        bleKeyboard  = true;               // Bluetooth HID Tastatur Ein/Aus
+    BleLayout   bleLayout    = BleLayout::GERMAN_DE;// Tastaturlayout: DE (QWERTZ) / US (QWERTY)
     TrainingSet trainingSet  = TrainingSet::KOCH;
     uint8_t     kochLevel    = 4;                  // 1 .. 40
 };
@@ -72,6 +74,7 @@ private:
         ITEM_VOLUME,
         ITEM_BRIGHTNESS,
         ITEM_BLE_KEYBOARD,
+        ITEM_BLE_LAYOUT,
         ITEM_TRAIN_SET,
         ITEM_KOCH_LVL,
         ITEM_BACK,

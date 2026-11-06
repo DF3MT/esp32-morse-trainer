@@ -126,6 +126,13 @@ void MenuController::handleMenuNavigation() {
                 saveSettings();
                 return;
 
+            case ITEM_BLE_LAYOUT:
+                _settings.bleLayout = (_settings.bleLayout == BleLayout::GERMAN_DE)
+                                      ? BleLayout::US_EN : BleLayout::GERMAN_DE;
+                applySettings();
+                saveSettings();
+                return;
+
             // Items that switch to interactive edit mode:
             case ITEM_MODE:
                 _isEditing = true;
@@ -299,6 +306,12 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
     }
     viewItems[ITEM_BLE_KEYBOARD].isAction = true;
 
+    // 9. BLE Layout
+    viewItems[ITEM_BLE_LAYOUT].label = "BLE-Layout";
+    snprintf(viewItems[ITEM_BLE_LAYOUT].value, sizeof(viewItems[ITEM_BLE_LAYOUT].value),
+             "%s", (_settings.bleLayout == BleLayout::GERMAN_DE) ? "DE (QWERTZ)" : "US (QWERTY)");
+    viewItems[ITEM_BLE_LAYOUT].isAction = true;
+
     // 8. Training Set
     viewItems[ITEM_TRAIN_SET].label = "Uebungssatz";
     const char* setName = "Koch";
@@ -362,8 +375,9 @@ void MenuController::applySettings(bool playFeedback) {
     uint8_t bl = (uint8_t)((_settings.brightness * 255) / 100);
     _display.setBrightness(bl);
 
-    // Sync BLE Keyboard state
+    // Sync BLE Keyboard state & layout
     BleManager::setEnabled(_settings.bleKeyboard);
+    BleManager::setLayout(_settings.bleLayout);
 
     if (playFeedback) {
         Sidetone::playBeep(40);
@@ -385,6 +399,7 @@ void MenuController::saveSettings() {
         prefs.putUChar("vol",  _settings.sidetoneVol);
         prefs.putUChar("brt",  _settings.brightness);
         prefs.putBool("ble",   _settings.bleKeyboard);
+        prefs.putUChar("blelay", (uint8_t)_settings.bleLayout);
         prefs.putInt("tset",   (int)_settings.trainingSet);
         prefs.putUChar("koch", _settings.kochLevel);
         prefs.end();
@@ -403,6 +418,7 @@ void MenuController::loadSettings() {
         _settings.sidetoneVol = prefs.getUChar("vol",    100);
         _settings.brightness  = prefs.getUChar("brt",    80);
         _settings.bleKeyboard = prefs.getBool("ble",     true);
+        _settings.bleLayout   = (BleLayout)prefs.getUChar("blelay", (uint8_t)BleLayout::GERMAN_DE);
         _settings.trainingSet = (TrainingSet)prefs.getInt("tset", (int)TrainingSet::KOCH);
         _settings.kochLevel   = prefs.getUChar("koch",   4);
         prefs.end();
