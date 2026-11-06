@@ -1,0 +1,11 @@
+.pio
+.vscode
+.idea
+__pycache__
+*.pyc
+*.bin
+*.elf
+*.o
+*.d
+*.tar.gz
+*.zip
