@@ -166,7 +166,7 @@ void MenuController::handleMenuNavigation() {
 
             case ITEM_TRAIN_SET:
                 _isEditing = true;
-                _encoder.setBoundaries(0, 4, false);
+                _encoder.setBoundaries(0, 6, false);
                 _encoder.setEncoderValue((long)_settings.trainingSet);
                 break;
 
@@ -217,7 +217,7 @@ void MenuController::handleMenuEditing() {
                 break;
 
             case ITEM_TRAIN_SET:
-                _settings.trainingSet = (TrainingSet)constrain(val, 0L, 4L);
+                _settings.trainingSet = (TrainingSet)constrain(val, 0L, 6L);
                 break;
 
             case ITEM_KOCH_LVL:
@@ -321,6 +321,8 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
         case TrainingSet::NUMBERS:   setName = "0-9"; break;
         case TrainingSet::ALL_CHARS: setName = "Alle"; break;
         case TrainingSet::Q_CODES:   setName = "Q-Codes"; break;
+        case TrainingSet::QSO_ABBR:  setName = "QSO-Abk."; break;
+        case TrainingSet::PROSIGNS:  setName = "Spruchz."; break;
     }
     snprintf(viewItems[ITEM_TRAIN_SET].value, sizeof(viewItems[ITEM_TRAIN_SET].value), "%s", setName);
     viewItems[ITEM_TRAIN_SET].isAction = false;

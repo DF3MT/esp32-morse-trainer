@@ -208,7 +208,7 @@ void DisplayManager::showDecodeScreen(const char* text, int wpm, bool autoMode, 
 // ============================================================
 // Helper: Morse code pattern lookup for training hint
 // ============================================================
-static const char* getMorseHint(char c) {
+static const char* getSingleCharMorseHint(char c) {
     switch (toupper(c)) {
         case 'A': return ".-";
         case 'B': return "-...";
@@ -262,6 +262,37 @@ static const char* getMorseHint(char c) {
     }
 }
 
+static void getMorseHint(const char* target, char* outHint, size_t maxLen) {
+    if (!target || !target[0]) {
+        outHint[0] = '\0';
+        return;
+    }
+
+    // Prosign exact hints (Verkehrszeichen gegeben ohne Pause)
+    if (strcmp(target, "<SK>") == 0) { snprintf(outHint, maxLen, "...-.-"); return; }
+    if (strcmp(target, "<AR>") == 0) { snprintf(outHint, maxLen, ".-.-."); return; }
+    if (strcmp(target, "<BT>") == 0) { snprintf(outHint, maxLen, "-...-"); return; }
+    if (strcmp(target, "<AS>") == 0) { snprintf(outHint, maxLen, ".-..."); return; }
+    if (strcmp(target, "<KN>") == 0) { snprintf(outHint, maxLen, "-.--."); return; }
+    if (strcmp(target, "<KA>") == 0) { snprintf(outHint, maxLen, "-.-.-"); return; }
+    if (strcmp(target, "<BK>") == 0) { snprintf(outHint, maxLen, "-...-.-"); return; }
+    if (strcmp(target, "<VE>") == 0) { snprintf(outHint, maxLen, "...-."); return; }
+    if (strcmp(target, "<HH>") == 0) { snprintf(outHint, maxLen, "........"); return; }
+    if (strcmp(target, "<SOS>") == 0) { snprintf(outHint, maxLen, "...---..."); return; }
+
+    // Multi-character word hints: concatenate single-char hints separated by spaces
+    outHint[0] = '\0';
+    for (size_t i = 0; target[i]; i++) {
+        const char* h = getSingleCharMorseHint(target[i]);
+        if (h && h[0]) {
+            if (outHint[0] != '\0') {
+                strncat(outHint, " ", maxLen - strlen(outHint) - 1);
+            }
+            strncat(outHint, h, maxLen - strlen(outHint) - 1);
+        }
+    }
+}
+
 // ============================================================
 // Training screen
 // ============================================================
@@ -281,22 +312,37 @@ void DisplayManager::showTrainingScreen(const TrainingChallenge& ch, bool keyDow
     target.setTextFont(2);
     target.setTextColor(C_ACCENT, C_BG);
     target.setCursor(4, 24);
-    target.print("Gib Zeichen:");
+    target.print("Gib:");
 
-    // Target character — large, bright, crisp (Font 4 with size 2 = 52px high!)
+    // Target text: adjust position and font size
     target.setTextFont(4);
-    target.setTextSize(2);
+    size_t tLen = strlen(ch.target);
+    if (tLen <= 2) {
+        target.setTextSize(2);
+        target.setCursor(48, 26);
+    } else if (tLen <= 4) {
+        target.setTextSize(1);
+        target.setCursor(48, 36);
+    } else {
+        target.setTextSize(1);
+        target.setCursor(44, 36);
+    }
     target.setTextColor(C_FG, C_BG);
-    target.setCursor(75, 26);
     target.print(ch.target);
     target.setTextSize(1); // Reset size back to 1
 
-    // Morse pattern hint next to target character
-    const char* hint = getMorseHint(ch.target[0]);
+    // Morse pattern hint
+    char hint[32];
+    getMorseHint(ch.target, hint, sizeof(hint));
     if (hint[0] != '\0') {
-        target.setTextFont(4);
+        if (strlen(hint) > 8) {
+            target.setTextFont(2);
+            target.setCursor(110, 42);
+        } else {
+            target.setTextFont(4);
+            target.setCursor(115, 36);
+        }
         target.setTextColor(C_WARN, C_BG);
-        target.setCursor(125, 38);
         target.print(hint);
     }
 

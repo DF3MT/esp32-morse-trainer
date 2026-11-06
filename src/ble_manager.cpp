@@ -71,6 +71,13 @@ void BleManager::pushChar(char c) {
     xQueueSend(_queue, &c, 0);
 }
 
+void BleManager::pushString(const char* str) {
+    if (!str || !_enabled || !_started || !_queue) return;
+    while (*str) {
+        pushChar(*str++);
+    }
+}
+
 void BleManager::sendRawKey(uint8_t keycode, uint8_t modifiers) {
     if (!bleKeyboard.isConnected()) return;
     KeyReport report = {0};
@@ -188,6 +195,26 @@ void BleManager::sendChar(char c) {
                     keycode = 0x14; // Key 'Q'
                     modifiers = 0x40; // AltGr (Right Alt)
                     break;
+                case '<':
+                    // German QWERTZ: Key 0x64 (between Left Shift and Y)
+                    keycode = 0x64;
+                    modifiers = 0x00;
+                    break;
+                case '>':
+                    // German QWERTZ: Shift + 0x64
+                    keycode = 0x64;
+                    modifiers = 0x02;
+                    break;
+                case '\'':
+                    // German QWERTZ: Shift + # (0x31)
+                    keycode = 0x31;
+                    modifiers = 0x02;
+                    break;
+                case '"':
+                    // German QWERTZ: Shift + 2 (0x1f)
+                    keycode = 0x1f;
+                    modifiers = 0x02;
+                    break;
                 case '\b':
                     keycode = 0x2a; // Backspace
                     modifiers = 0x00;
@@ -284,6 +311,26 @@ void BleManager::sendChar(char c) {
                     // US QWERTY: Shift + 2
                     keycode = 0x1f; // Key '2'
                     modifiers = 0x02; // Shift
+                    break;
+                case '<':
+                    // US QWERTY: Shift + , (0x36)
+                    keycode = 0x36;
+                    modifiers = 0x02;
+                    break;
+                case '>':
+                    // US QWERTY: Shift + . (0x37)
+                    keycode = 0x37;
+                    modifiers = 0x02;
+                    break;
+                case '\'':
+                    // US QWERTY: Key 0x34
+                    keycode = 0x34;
+                    modifiers = 0x00;
+                    break;
+                case '"':
+                    // US QWERTY: Shift + ' (0x34)
+                    keycode = 0x34;
+                    modifiers = 0x02;
                     break;
                 case '\b':
                     keycode = 0x2a; // Backspace

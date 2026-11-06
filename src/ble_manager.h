@@ -36,6 +36,7 @@ public:
     static void setLayout(BleLayout layout);
     static BleLayout getLayout();
     static void pushChar(char c);
+    static void pushString(const char* str);
     static void tick(); // Periodic dispatch called from Core 1 (uiTask)
     static void sendRawKey(uint8_t keycode, uint8_t modifiers);
     static void sendChar(char c);

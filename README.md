@@ -21,23 +21,26 @@ Designed for both amateur radio operators honing high-speed CW skills (up to 40 
   * Paddle swap option (left/right hand) toggleable in menu.
 * **Wireless Bluetooth Low Energy (BLE) HID Keyboard**:
   * Emulates a wireless Bluetooth keyboard (**`CW-Keyer DF3MT`**) recognized natively on Windows, macOS, Linux, iOS, and Android without any extra drivers.
-  * Transmits decoded Morse code characters and word spaces in real time directly into any text editor, web browser, contest logger (N1MM, Log4OM), or chat app.
+  * Transmits decoded Morse code characters, amateur radio prosigns (e.g. `<SK>`, `<AR>`, `<BT>`), and word spaces in real time directly into any text editor, web browser, contest logger (N1MM, Log4OM), or chat app.
   * **Full German QWERTZ & US QWERTY Layout Support**:
-    * **German DE Layout (Default)**: Automatically remaps scan codes so that `/` (`Shift + 7`), `?` (`Shift + ß`), `=` (`Shift + 0`), `-` (key `0x38`), and `Z`/`Y` are transmitted perfectly without layout corruption.
-    * **US EN Layout**: Standard US ASCII keymap for US-configured hosts.
+    * **German DE Layout (Default)**: Automatically remaps scan codes so that `@` (`AltGr + Q`), `/` (`Shift + 7`), `?` (`Shift + ß`), `=` (`Shift + 0`), `-` (key `0x38`), `<`, `>`, `'`, `"`, and `Z`/`Y` are transmitted perfectly without layout corruption.
+    * **US EN Layout**: Standard US ASCII keymap for US-configured hosts (`Shift + 2` for `@`, `<`, `>`, etc.).
     * Switchable anytime directly in the menu (`BLE-Layout: DE (QWERTZ)` / `US (QWERTY)`) and saved to NVS Flash.
   * Live status badge (`[BLE]`) on the screen header shows connection state (dim = advertising/waiting, bright cyan/blue = connected).
   * Toggleable via the configuration menu (`BLE-Tastatur: Ein / Aus`) and saved in NVS Flash.
   * Thread-safe FreeRTOS queue architecture: 0-wait Core 0 transmission ensures zero jitter on the 1 ms keyer timing engine.
-* **3-Line Rolling Terminal Decoder**:
-  * Real-time decoding using an expanded binary tree covering **A–Z, 0–9, and punctuation (`/`, `?`, `.`, `,`)**.
+* **3-Line Rolling Terminal Decoder & Prosign Engine**:
+  * Pattern-based lookup engine covering **A–Z, 0–9, all standard punctuation (`.`, `,`, `?`, `/`, `=`, `-`, `:`, `;`, `(`, `)`, `'`, `"`, `@`, `+`, `_`)**, and **official amateur radio prosigns given without pause** (`<SK>`, `<AR>`, `<BT>`, `<AS>`, `<KN>`, `<KA>`, `<BK>`, `<VE>`, `<HH>`, `<SOS>`).
+  * **Iambic Squeeze Tolerance Matching**: Automatic tolerance filters for trailing squeeze elements guarantee that period `.` (`.-.-.-`), comma `,` (`--..--`), equals/BT, and prosigns decode 100% reliably even with contact bounce or Mode B trailing alternation.
   * Continuous 3-line display with automatic line-wrapping and teletype-style upward scrolling.
   * Intelligent word-space detection ($5.0T$ threshold) with clear visual spacing.
-* **Koch Method Training Mode**:
+* **Koch Method & QSO Abbreviation Training Mode**:
   * 40 progressive Koch sequence stages (`K M R S U A P T L O N W J E F 0 Y , V G 5 / Q 9 Z H 3 8 B ? 4 2 7 C 1 D 6 X`).
-  * Big, bold 52-pixel target character display with live visual Morse pattern guide.
-  * Instant feedback (`RICHTIG!` / `FALSCH`) with automatic advancement to the next challenge.
-  * Customizable training sets: Koch Sequence, Letters only, Numbers only, All characters, or Q-Codes.
+  * **QSO-Verkehrsabkürzungen & Spruchzeichen Training**: Practice authentic on-the-air amateur radio traffic:
+    * **QSO-Abk.**: Common CW traffic abbreviations (`CQ`, `73`, `5NN`, `GM`, `GA`, `GE`, `GN`, `PSE`, `TNX`, `RST`, `NAME`, `HW?`, `WX`, `RIG`, `ANT`, `FB`, `RPT`, `AGN`, `CUL`, `BCNU`, `SKED`, `ES`, `DE`, `K`, `BK`).
+    * **Spruchz.**: Prosigns sent without pause (`<SK>`, `<AR>`, `<BT>`, `<AS>`, `<KN>`, `<KA>`, `<BK>`, `<VE>`, `<HH>`, `<SOS>`).
+    * **Q-Codes**: Frequently used Q-signals (`QTH`, `QSL`, `QSO`, `QRP`, `QRZ`, `QRM`, `QRN`, `QSY`, `QRQ`, `QRS`).
+  * Multi-character keying validation with dynamic feedback (`RICHTIG!` / `FALSCH`) and multi-element Morse pattern guide.
 * **Rotary Encoder Menu System (KY-040)**:
   * Fully configurable on the fly via rotary encoder turn & click.
   * Live parameter adjustments with instant audio/visual preview.
@@ -126,7 +129,7 @@ Navigate by turning the knob, click to edit/toggle, click again to confirm and s
 8. **Helligkeit**: Display backlight brightness (10 .. 100%).
 9. **BLE-Tastatur**: Toggle Bluetooth Low Energy HID keyboard (`Ein` / `Aus`).
 10. **BLE-Layout**: Select keyboard layout (`DE (QWERTZ)` for German systems, `US (QWERTY)` for US systems).
-11. **Übungssatz**: Training set (`Koch-Methode`, `Nur Buchstaben`, `Nur Ziffern`, `Alle Zeichen`, `Q-Codes`).
+11. **Übungssatz**: Training set (`Koch-Methode`, `Nur Buchstaben`, `Nur Ziffern`, `Alle Zeichen`, `Q-Codes`, `QSO-Abk.`, `Spruchz.`).
 12. **Koch-Stufe**: Progressive lesson level (Level 1 to 40).
 13. **< Zurueck**: Exit menu and persist all settings to Flash.
 

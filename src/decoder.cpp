@@ -1,78 +1,95 @@
 #include "decoder.h"
 
 // ============================================================
-// Morse binary tree (flat array, index 1 = root)
-// dit → 2*i, dah → 2*i+1
-// Extended to 256 elements to cover A-Z, 0-9, and all standard
-// punctuation and prosigns: . , ? / = - : ; ( ) @ +
+// Morse code lookup table
+// Maps dit/dah patterns to tokens (letters, numbers, punctuation, prosigns)
+// Includes squeeze-release timing tolerance aliases for reliable decoding.
 // ============================================================
-const char MorseDecoder::MORSE_TREE[256] = {
-/*  0*/   0,   0, 'E', 'T', 'I', 'A', 'N', 'M',
-/*  8*/ 'S', 'U', 'R', 'W', 'D', 'K', 'G', 'O',
-/* 16*/ 'H', 'V', 'F',   0, 'L',   0, 'P', 'J',
-/* 24*/ 'B', 'X', 'C', 'Y', 'Z', 'Q',   0,   0,
-/* 32*/ '5', '4',   0, '3',   0,   0,   0, '2',
-/* 40*/   0,   0, '+',   0,   0,   0,   0, '1',
-/* 48*/ '6', '=', '/',   0,   0,   0, '(',   0,
-/* 56*/ '7',   0,   0,   0, '8',   0, '9', '0',
-/* 64*/   0,   0,   0,   0,   0,   0,   0,   0,
-/* 72*/   0,   0,   0,   0, '?',   0,   0,   0,
-/* 80*/   0,   0,   0,   0,   0, '.',   0,   0,
-/* 88*/   0,   0, '@',   0,   0,   0,   0,   0,
-/* 96*/   0, '-', '=',   0,   0,   0,   0,   0,
-/*104*/   0,   0, ';',   0,   0, ')',   0,   0,
-/*112*/   0,   0,   0, ',',   0,   0,   0,   0,
-/*120*/ ':',   0,   0,   0,   0,   0,   0,   0,
-/*128*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*136*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*144*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*152*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*160*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*168*/   0,   0, '.', '.',   0,   0,   0,   0,
-/*176*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*184*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*192*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*200*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*208*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*216*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*224*/   0,   0,   0,   0,   0,   0, ',',   0,
-/*232*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*240*/   0,   0,   0,   0,   0,   0,   0,   0,
-/*248*/   0,   0,   0,   0,   0,   0,   0,   0
+const MorseDecoder::MorseMapping MorseDecoder::MORSE_TABLE[] = {
+    // Letters (A-Z)
+    { ".-", "A" }, { "-...", "B" }, { "-.-.", "C" }, { "-..", "D" }, { ".", "E" },
+    { "..-.", "F" }, { "--.", "G" }, { "....", "H" }, { "..", "I" }, { ".---", "J" },
+    { "-.-", "K" }, { ".-..", "L" }, { "--", "M" }, { "-.", "N" }, { "---", "O" },
+    { ".--.", "P" }, { "--.-", "Q" }, { ".-.", "R" }, { "...", "S" }, { "-", "T" },
+    { "..-", "U" }, { "...-", "V" }, { ".--", "W" }, { "-..-", "X" }, { "-.--", "Y" },
+    { "--..", "Z" },
+
+    // Digits (0-9)
+    { "-----", "0" }, { ".----", "1" }, { "..---", "2" }, { "...--", "3" },
+    { "....-", "4" }, { ".....", "5" }, { "-....", "6" }, { "--...", "7" },
+    { "---..", "8" }, { "----.", "9" },
+
+    // Punctuation & Special Signs (ITU-R & Amateur Radio)
+    { ".-.-.-", "." },   // Period / Punkt
+    { ".-.-.-.", "." },  // Period squeeze tolerance (trailing dit)
+    { ".-.-.--", "." },  // Period squeeze tolerance (trailing dah)
+    { "--..--", "," },   // Comma / Beistrich
+    { "--..--.", "," },  // Comma squeeze tolerance (trailing dit)
+    { "--..---", "," },  // Comma squeeze tolerance (trailing dah)
+    { "..--..", "?" },   // Question mark / Fragezeichen
+    { "..--...", "?" },  // Question mark squeeze tolerance
+    { "..--..-", "?" },
+    { "-..-.", "/" },    // Slash / Bruchstrich
+    { "-..--.", "/" },   // Slash tolerance
+    { "-....-", "-" },   // Hyphen / Bindestrich
+    { "-....-.", "-" },  // Hyphen tolerance
+    { "---...", ":" },   // Colon / Doppelpunkt
+    { "-.-.-.", ";" },   // Semicolon / Strichpunkt
+    { ".----.", "'" },   // Single quote / Apostroph
+    { ".-..-.", "\"" },  // Double quote / Anfuehrungszeichen
+    { ".--.-.", "@" },   // At-sign / Klammeraffe
+    { ".--.-..", "@" },  // At-sign tolerance
+    { ".--.-.-", "@" },
+    { "-.--.-", ")" },   // Close parenthesis / Klammer
+    { "..--.-", "_" },   // Underscore / Unterstrich
+
+    // Amateur Radio Prosigns (Verkehrsabkürzungen ohne Pause - qrp4fun.de)
+    { "...-.-", "<SK>" },   // QSO-Ende / Schlusszeichen (End of contact / SK)
+    { "...-.--", "<SK>" },  // SK squeeze tolerance
+    { "...-.-.", "<SK>" },  // SK squeeze tolerance
+    { ".-.-.", "<AR>" },    // Spruchende / Ende der Sendung / Kreuz (End of message / AR / +)
+    { ".-.-..", "<AR>" },   // AR squeeze tolerance
+    { "-...-", "<BT>" },    // Trennung / Pause (Break / BT / =)
+    { "-...-.", "<BT>" },   // BT squeeze tolerance
+    { ".-...", "<AS>" },    // Bitte warten (Wait / AS)
+    { ".-....", "<AS>" },   // AS squeeze tolerance
+    { "-.--.", "<KN>" },    // Aufforderung nur an bestimmte Station (Go only / KN / ()
+    { "-.--..", "<KN>" },   // KN squeeze tolerance
+    { "-.-.-", "<KA>" },    // Spruchanfang / Beginn des Verkehrs (Starting signal / KA)
+    { "-...-.-", "<BK>" },  // Break / Zwischenruf (Break in / BK)
+    { "-...-.--", "<BK>" }, // BK squeeze tolerance
+    { "...-.", "<VE>" },    // Verstanden / Bestaetigt (Understood / VE / SN)
+    { "........", "<HH>" }, // Irrung / Fehler (Correction / Error - 8 dits)
+    { ".......", "<HH>" },  // HH tolerance (7 dits)
+    { ".........", "<HH>" },// HH tolerance (9 dits)
+    { "...---...", "<SOS>" }// Notruf (Distress / SOS)
 };
 
+const size_t MorseDecoder::MORSE_TABLE_SIZE = sizeof(MORSE_TABLE) / sizeof(MORSE_TABLE[0]);
+
 MorseDecoder::MorseDecoder() {
+    _pattern[0] = '\0';
+    _patLen = 0;
     _lastSilenceStart = millis();
 }
 
-// ============================================================
-// Feed an element from the keyer
-// ============================================================
 void MorseDecoder::push(KeyerElement elem) {
     if (elem == KeyerElement::NONE) return;
 
     // A new element belongs to a character -> cancel pending word space
     _spacePending = false;
 
-    // Traverse tree
-    if (elem == KeyerElement::DIT) {
-        _treeIdx = _treeIdx * 2;
-    } else {
-        _treeIdx = _treeIdx * 2 + 1;
+    if (_patLen < sizeof(_pattern) - 1) {
+        _pattern[_patLen++] = (elem == KeyerElement::DIT) ? '.' : '-';
+        _pattern[_patLen]   = '\0';
     }
 
-    Serial.printf("[DEC] elem=%s -> idx=%d\n", (elem == KeyerElement::DIT) ? "." : "-", _treeIdx);
-
-    if (_treeIdx >= 256) _treeIdx = 1;  // Overflow guard
+    Serial.printf("[DEC] elem=%s -> pat='%s'\n", (elem == KeyerElement::DIT) ? "." : "-", _pattern);
 
     _lastSilenceStart = millis();
     _active = true;
 }
 
-// ============================================================
-// Poll for inter-character / inter-word gaps
-// Call every 1ms with current keyer T and key status
-// ============================================================
 void MorseDecoder::tick(float keyerT_ms, bool isKeyDown) {
     // If tone is actively sounding, silence is ZERO!
     if (isKeyDown) {
@@ -82,38 +99,53 @@ void MorseDecoder::tick(float keyerT_ms, bool isKeyDown) {
 
     unsigned long silence = millis() - _lastSilenceStart;
 
-    // 1. Inter-character gap: 2.5T silence after element ends -> emit decoded character
-    // In Morse, element space is 1T. An inter-character space is 3T.
-    // The decision threshold is the midpoint (2.5T).
+    // 1. Inter-character gap: 2.5T silence after element ends -> emit decoded token
     if (_active && silence >= (unsigned long)(keyerT_ms * 2.5f)) {
-        emitChar();
+        emitToken();
         _active = false;
         _spacePending = true;
     }
 
     // 2. Inter-word gap: 5.0T silence -> emit word space
-    // Theoretical Morse word space is 7T; real operators pause 4.5T to 6T.
-    // The decision threshold between letter gap (3T) and word gap (7T) is the midpoint (5.0T).
     if (_spacePending && silence >= (unsigned long)(keyerT_ms * 5.0f)) {
         _spacePending = false;
-        if (_charCb) _charCb(' ');
+        if (_tokenCb) _tokenCb(" ");
+        if (_charCb)  _charCb(' ');
     }
 }
 
-// ============================================================
-// Emit the character at the current tree position
-// ============================================================
-void MorseDecoder::emitChar() {
-    char c = (_treeIdx < 256) ? MORSE_TREE[_treeIdx] : 0;
-    Serial.printf("[DEC] emit idx=%d -> '%c' (0x%02X)\n", _treeIdx, c ? c : '?', (uint8_t)c);
-    if (c && _charCb) {
-        _charCb(c);
+const char* MorseDecoder::findToken(const char* pattern) const {
+    if (!pattern || !pattern[0]) return nullptr;
+    for (size_t i = 0; i < MORSE_TABLE_SIZE; i++) {
+        if (strcmp(MORSE_TABLE[i].pattern, pattern) == 0) {
+            return MORSE_TABLE[i].token;
+        }
     }
-    _treeIdx = 1;  // Reset to root
+    return nullptr;
+}
+
+void MorseDecoder::emitToken() {
+    if (_patLen == 0) return;
+
+    const char* token = findToken(_pattern);
+    Serial.printf("[DEC] emit pat='%s' -> token='%s'\n", _pattern, token ? token : "<UNKNOWN>");
+
+    if (token) {
+        if (_tokenCb) {
+            _tokenCb(token);
+        }
+        if (_charCb && strlen(token) == 1) {
+            _charCb(token[0]);
+        }
+    }
+
+    _patLen = 0;
+    _pattern[0] = '\0';
 }
 
 void MorseDecoder::reset() {
-    _treeIdx = 1;
+    _patLen = 0;
+    _pattern[0] = '\0';
     _active = false;
     _spacePending = false;
     _lastSilenceStart = millis();

@@ -20,7 +20,9 @@ enum class TrainingSet {
     LETTERS,
     NUMBERS,
     ALL_CHARS,
-    Q_CODES
+    Q_CODES,
+    QSO_ABBR,
+    PROSIGNS
 };
 
 struct Settings {

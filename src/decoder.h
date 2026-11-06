@@ -3,15 +3,16 @@
 #include "keyer.h"
 
 // ============================================================
-// MorseDecoder — converts keyer elements into characters
+// MorseDecoder — converts keyer elements into characters & prosigns
 //
-// Feed elements via push(). Characters are emitted via callback
-// when a 3T inter-character silence is detected.
-// Spaces are emitted when a 7T inter-word silence is detected.
+// Feed elements via push(). Tokens (e.g. "A", ".", "<SK>", "<AR>")
+// are emitted via callback when inter-character silence is detected.
+// Spaces are emitted when inter-word silence is detected.
 // ============================================================
 class MorseDecoder {
 public:
-    using CharCallback = void (*)(char c);
+    using TokenCallback = void (*)(const char* token);
+    using CharCallback  = void (*)(char c);
 
     MorseDecoder();
 
@@ -21,22 +22,32 @@ public:
     // Call every 1ms so inter-character/word gaps can be detected
     void tick(float keyerT_ms, bool isKeyDown = false);
 
-    void onChar(CharCallback cb) { _charCb = cb; }
+    void onToken(TokenCallback cb) { _tokenCb = cb; }
+    void onChar(CharCallback cb)   { _charCb = cb; }
     void reset();
 
     int  getDecodedWpm() const;
 
 private:
-    static const char MORSE_TREE[256];
+    struct MorseMapping {
+        const char* pattern;
+        const char* token;
+    };
 
-    uint16_t      _treeIdx          = 1;   // Current position in tree (1 = root, max 255)
+    static const MorseMapping MORSE_TABLE[];
+    static const size_t MORSE_TABLE_SIZE;
+
+    char          _pattern[16];
+    uint8_t       _patLen           = 0;
     unsigned long _lastSilenceStart = 0;   // millis() when tone stopped
     bool          _active           = false;
     bool          _spacePending     = false;
 
-    CharCallback _charCb = nullptr;
+    TokenCallback _tokenCb          = nullptr;
+    CharCallback  _charCb           = nullptr;
 
-    float  _decodedT = 60.0f;
+    float         _decodedT         = 60.0f;
 
-    void emitChar();
+    void emitToken();
+    const char* findToken(const char* pattern) const;
 };

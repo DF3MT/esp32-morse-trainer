@@ -22,38 +22,71 @@ static portMUX_TYPE textMux = portMUX_INITIALIZER_UNLOCKED;
 // Training state
 static TrainingChallenge challenge;
 static bool  trainingWaitingForSend = false;
-static char  trainingTarget = 'K';
+static char  trainingTarget[8] = "K";
 static char  trainingSent[8] = "";
+static TrainingSet lastTrainingSet = TrainingSet::KOCH;
 
 // Display state tracking
 static bool displayDirty = true;
 
 // Helper: Pick next training target based on configured TrainingSet & Koch level
-static char getNextTrainingTarget() {
+static void getNextTrainingTarget(char* outTarget, size_t maxLen) {
     const Settings& s = menu.settings();
     switch (s.trainingSet) {
         case TrainingSet::KOCH: {
             uint8_t count = constrain((int)s.kochLevel + 1, 2, 40);
-            return MenuController::KOCH_SEQUENCE[random(count)];
+            char c = MenuController::KOCH_SEQUENCE[random(count)];
+            snprintf(outTarget, maxLen, "%c", c);
+            return;
         }
         case TrainingSet::LETTERS: {
             const char* letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            return letters[random(26)];
+            snprintf(outTarget, maxLen, "%c", letters[random(26)]);
+            return;
         }
         case TrainingSet::NUMBERS: {
             const char* digits = "0123456789";
-            return digits[random(10)];
+            snprintf(outTarget, maxLen, "%c", digits[random(10)]);
+            return;
         }
         case TrainingSet::ALL_CHARS: {
             const char* all = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?/=-:";
-            return all[random(strlen(all))];
+            snprintf(outTarget, maxLen, "%c", all[random(strlen(all))]);
+            return;
         }
         case TrainingSet::Q_CODES: {
-            const char* qchars = "CQTHSLRNMG";
-            return qchars[random(strlen(qchars))];
+            static const char* qCodes[] = {
+                "QTH", "QSL", "QSO", "QRP", "QRZ",
+                "QRM", "QRN", "QSY", "QRQ", "QRS"
+            };
+            const size_t n = sizeof(qCodes) / sizeof(qCodes[0]);
+            snprintf(outTarget, maxLen, "%s", qCodes[random(n)]);
+            return;
+        }
+        case TrainingSet::QSO_ABBR: {
+            // Gebräuchlichste CW-Verkehrsabkürzungen aus qrp4fun.de/de/s3_02.htm
+            static const char* abbrs[] = {
+                "CQ", "73", "5NN", "GM", "GA", "GE", "GN",
+                "PSE", "TNX", "RST", "NAME", "HW?", "WX",
+                "RIG", "ANT", "FB", "RPT", "AGN", "CUL", "BCNU",
+                "SKED", "ES", "DE", "K", "BK"
+            };
+            const size_t n = sizeof(abbrs) / sizeof(abbrs[0]);
+            snprintf(outTarget, maxLen, "%s", abbrs[random(n)]);
+            return;
+        }
+        case TrainingSet::PROSIGNS: {
+            // Offizielle Verkehrszeichen ohne Pause (qrp4fun.de/de/s3_01.htm)
+            static const char* prosigns[] = {
+                "<SK>", "<AR>", "<BT>", "<AS>", "<KN>",
+                "<KA>", "<BK>", "<VE>", "<HH>", "<SOS>"
+            };
+            const size_t n = sizeof(prosigns) / sizeof(prosigns[0]);
+            snprintf(outTarget, maxLen, "%s", prosigns[random(n)]);
+            return;
         }
     }
-    return 'K';
+    snprintf(outTarget, maxLen, "K");
 }
 
 // ============================================================
@@ -66,41 +99,73 @@ void onElement(KeyerElement e) {
     displayDirty = true;
 }
 
-// Character decoded → append to text buffer
-void onChar(char c) {
-    Serial.printf("[MAIN] onChar: '%c' (0x%02X)\n", c, (uint8_t)c);
+// Token decoded (character, prosign, or space) → append to text buffer & BLE
+void onToken(const char* token) {
+    if (!token || !token[0]) return;
+    Serial.printf("[MAIN] onToken: '%s'\n", token);
+
     portENTER_CRITICAL(&textMux);
     size_t len = strlen(decodedText);
+    size_t tLen = strlen(token);
 
     // Prevent leading spaces or multiple consecutive spaces in decode buffer
-    if (c == ' ') {
+    if (token[0] == ' ') {
         if (len == 0 || decodedText[len - 1] == ' ') {
             portEXIT_CRITICAL(&textMux);
             return;
         }
     }
 
-    if (len >= DECODED_CHARS_MAX) {
-        // Scroll: shift left by 1 character
+    // Scroll if needed to fit token
+    while (len + tLen >= DECODED_CHARS_MAX) {
         memmove(decodedText, decodedText + 1, DECODED_CHARS_MAX);
-        len = DECODED_CHARS_MAX - 1;
+        len--;
     }
-    decodedText[len]     = c;
-    decodedText[len + 1] = '\0';
+    strcpy(decodedText + len, token);
     portEXIT_CRITICAL(&textMux);
 
-    // Training mode: check if sent char matches target (ignore word spaces)
-    if (menu.currentScreen() == AppScreen::TRAINING && trainingWaitingForSend && c != ' ') {
-        challenge.sent[0] = c;
-        challenge.sent[1] = '\0';
-        challenge.correct = (c == trainingTarget);
-        challenge.target[0] = trainingTarget;
-        challenge.target[1] = '\0';
-        trainingWaitingForSend = false;
+    // Training mode verification
+    if (menu.currentScreen() == AppScreen::TRAINING && trainingWaitingForSend) {
+        if (token[0] == ' ') {
+            // Word space emitted -> if operator keyed something, evaluate now
+            if (strlen(trainingSent) > 0) {
+                challenge.correct = (strcmp(trainingSent, trainingTarget) == 0);
+                strncpy(challenge.sent, trainingSent, sizeof(challenge.sent) - 1);
+                trainingWaitingForSend = false;
+            }
+        } else {
+            // Append token to trainingSent
+            strncat(trainingSent, token, sizeof(trainingSent) - strlen(trainingSent) - 1);
+            strncpy(challenge.sent, trainingSent, sizeof(challenge.sent) - 1);
+
+            // Check exact match
+            bool match = false;
+            if (strcmp(trainingSent, trainingTarget) == 0) {
+                match = true;
+            } else if (strcmp(trainingTarget, "=") == 0 && strcmp(trainingSent, "<BT>") == 0) {
+                match = true;
+            } else if (strcmp(trainingTarget, "+") == 0 && strcmp(trainingSent, "<AR>") == 0) {
+                match = true;
+            }
+
+            if (match) {
+                challenge.correct = true;
+                trainingWaitingForSend = false;
+            } else {
+                // Check if current sent text is still a valid prefix of target
+                size_t sLen = strlen(trainingSent);
+                size_t targetLen = strlen(trainingTarget);
+                if (sLen >= targetLen || strncmp(trainingTarget, trainingSent, sLen) != 0) {
+                    // Mismatch! Operator made a mistake or sent wrong character
+                    challenge.correct = false;
+                    trainingWaitingForSend = false;
+                }
+            }
+        }
     }
 
-    // Push decoded character to Bluetooth HID keyboard
-    BleManager::pushChar(c);
+    // Push token to Bluetooth HID keyboard
+    BleManager::pushString(token);
 
     displayDirty = true;
 }
@@ -173,17 +238,28 @@ void uiTask(void* pvParams) {
                     challenge.wpm       = wpm;
                     challenge.autoMode  = keyer.isAutoSpeed();
                     challenge.autoReady = keyer.isAutoSpeedReady();
+
+                    // If training set changed, refresh target
+                    if (menu.settings().trainingSet != lastTrainingSet) {
+                        lastTrainingSet = menu.settings().trainingSet;
+                        getNextTrainingTarget(trainingTarget, sizeof(trainingTarget));
+                        trainingSent[0] = '\0';
+                        trainingWaitingForSend = true;
+                    }
+
                     if (trainingWaitingForSend) {
-                        challenge.target[0] = trainingTarget;
-                        challenge.target[1] = '\0';
-                        challenge.sent[0]   = '\0';
+                        strncpy(challenge.target, trainingTarget, sizeof(challenge.target) - 1);
+                        challenge.target[sizeof(challenge.target) - 1] = '\0';
+                        strncpy(challenge.sent, trainingSent, sizeof(challenge.sent) - 1);
+                        challenge.sent[sizeof(challenge.sent) - 1] = '\0';
                     }
                     display.showTrainingScreen(challenge, keyer.isKeyDown(), bleEn, bleConn);
 
                     // Advance to next target after 1.2s of feedback
                     if (!trainingWaitingForSend) {
                         vTaskDelay(1200 / portTICK_PERIOD_MS);
-                        trainingTarget = getNextTrainingTarget();
+                        getNextTrainingTarget(trainingTarget, sizeof(trainingTarget));
+                        trainingSent[0] = '\0';
                         trainingWaitingForSend = true;
                         displayDirty = true;
                     }
@@ -222,12 +298,16 @@ void setup() {
 
     // Register callbacks
     keyer.onElement(onElement);
-    decoder.onChar(onChar);
+    decoder.onToken(onToken);
 
     // Training init
-    trainingTarget = 'K';
+    lastTrainingSet = menu.settings().trainingSet;
+    getNextTrainingTarget(trainingTarget, sizeof(trainingTarget));
+    trainingSent[0] = '\0';
     trainingWaitingForSend = true;
     challenge = {};
+    strncpy(challenge.target, trainingTarget, sizeof(challenge.target) - 1);
+    challenge.target[sizeof(challenge.target) - 1] = '\0';
 
     // Start FreeRTOS tasks
     xTaskCreatePinnedToCore(keyerTask, "Keyer", KEYER_TASK_STACK, nullptr, 10, nullptr, 0);
