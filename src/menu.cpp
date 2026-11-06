@@ -1,6 +1,7 @@
 #include "menu.h"
 #include "config.h"
 #include "sidetone.h"
+#include "ble_manager.h"
 #include <Preferences.h>
 
 static void IRAM_ATTR encoderISR_wrapper();
@@ -115,6 +116,12 @@ void MenuController::handleMenuNavigation() {
 
             case ITEM_PADDLE_SWAP:
                 _settings.paddleSwap = !_settings.paddleSwap;
+                applySettings();
+                saveSettings();
+                return;
+
+            case ITEM_BLE_KEYBOARD:
+                _settings.bleKeyboard = !_settings.bleKeyboard;
                 applySettings();
                 saveSettings();
                 return;
@@ -281,6 +288,17 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
     snprintf(viewItems[ITEM_BRIGHTNESS].value, sizeof(viewItems[ITEM_BRIGHTNESS].value), "%d %%", _settings.brightness);
     viewItems[ITEM_BRIGHTNESS].isAction = false;
 
+    // 8. BLE Keyboard
+    viewItems[ITEM_BLE_KEYBOARD].label = "BLE-Tastatur";
+    if (!_settings.bleKeyboard) {
+        snprintf(viewItems[ITEM_BLE_KEYBOARD].value, sizeof(viewItems[ITEM_BLE_KEYBOARD].value), "Aus");
+    } else if (BleManager::isConnected()) {
+        snprintf(viewItems[ITEM_BLE_KEYBOARD].value, sizeof(viewItems[ITEM_BLE_KEYBOARD].value), "Verbunden");
+    } else {
+        snprintf(viewItems[ITEM_BLE_KEYBOARD].value, sizeof(viewItems[ITEM_BLE_KEYBOARD].value), "Wartet...");
+    }
+    viewItems[ITEM_BLE_KEYBOARD].isAction = true;
+
     // 8. Training Set
     viewItems[ITEM_TRAIN_SET].label = "Uebungssatz";
     const char* setName = "Koch";
@@ -344,6 +362,9 @@ void MenuController::applySettings(bool playFeedback) {
     uint8_t bl = (uint8_t)((_settings.brightness * 255) / 100);
     _display.setBrightness(bl);
 
+    // Sync BLE Keyboard state
+    BleManager::setEnabled(_settings.bleKeyboard);
+
     if (playFeedback) {
         Sidetone::playBeep(40);
     }
@@ -363,6 +384,7 @@ void MenuController::saveSettings() {
         prefs.putUShort("tone",_settings.sidetoneHz);
         prefs.putUChar("vol",  _settings.sidetoneVol);
         prefs.putUChar("brt",  _settings.brightness);
+        prefs.putBool("ble",   _settings.bleKeyboard);
         prefs.putInt("tset",   (int)_settings.trainingSet);
         prefs.putUChar("koch", _settings.kochLevel);
         prefs.end();
@@ -380,6 +402,7 @@ void MenuController::loadSettings() {
         _settings.sidetoneHz  = prefs.getUShort("tone",  800);
         _settings.sidetoneVol = prefs.getUChar("vol",    100);
         _settings.brightness  = prefs.getUChar("brt",    80);
+        _settings.bleKeyboard = prefs.getBool("ble",     true);
         _settings.trainingSet = (TrainingSet)prefs.getInt("tset", (int)TrainingSet::KOCH);
         _settings.kochLevel   = prefs.getUChar("koch",   4);
         prefs.end();

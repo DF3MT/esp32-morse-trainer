@@ -17,8 +17,14 @@ Designed for both amateur radio operators honing high-speed CW skills (up to 40 
 * **Dual-Mode Iambic Keyer (Mode A & Mode B)**:
   * Full Curtis 8044 timing emulation with squeeze keying (alternating Dit-Dah).
   * Smooth speed control from **3 WPM to 40 WPM** (single-WPM steps).
-  * Robust paddle-release detection and 10 ms hardware debounce: single taps never produce accidental double elements.
+  * Robust paddle-release detection and 5 ms hardware debounce: single taps never produce accidental double elements.
   * Paddle swap option (left/right hand) toggleable in menu.
+* **Wireless Bluetooth Low Energy (BLE) HID Keyboard**:
+  * Emulates a wireless Bluetooth keyboard (**`CW-Keyer DF3MT`**) recognized natively on Windows, macOS, Linux, iOS, and Android without any extra drivers.
+  * Transmits decoded Morse code characters and word spaces in real time directly into any text editor, web browser, contest logger (N1MM, Log4OM), or chat app.
+  * Live status badge (`[BLE]`) on the screen header shows connection state (dim = advertising/waiting, bright cyan/blue = connected).
+  * Toggleable via the configuration menu (`BLE-Tastatur: Ein / Aus`) and saved in NVS Flash.
+  * Thread-safe FreeRTOS queue architecture: 0-wait Core 0 transmission ensures zero jitter on the 1 ms keyer timing engine.
 * **3-Line Rolling Terminal Decoder**:
   * Real-time decoding using an expanded binary tree covering **A–Z, 0–9, and punctuation (`/`, `?`, `.`, `,`)**.
   * Continuous 3-line display with automatic line-wrapping and teletype-style upward scrolling.
@@ -114,9 +120,10 @@ Navigate by turning the knob, click to edit/toggle, click again to confirm and s
 6. **Tonhöhe**: Sidetone frequency (400 .. 2500 Hz, with live audio preview).
 7. **Lautstärke**: PWM duty cycle / volume (0 .. 100%).
 8. **Helligkeit**: Display backlight brightness (10 .. 100%).
-9. **Übungssatz**: Training set (`Koch-Methode`, `Nur Buchstaben`, `Nur Ziffern`, `Alle Zeichen`, `Q-Codes`).
-10. **Koch-Stufe**: Progressive lesson level (Level 1 to 40).
-11. **< Zurueck**: Exit menu and persist all settings to Flash.
+9. **BLE-Tastatur**: Toggle Bluetooth Low Energy HID keyboard (`Ein` / `Aus`).
+10. **Übungssatz**: Training set (`Koch-Methode`, `Nur Buchstaben`, `Nur Ziffern`, `Alle Zeichen`, `Q-Codes`).
+11. **Koch-Stufe**: Progressive lesson level (Level 1 to 40).
+12. **< Zurueck**: Exit menu and persist all settings to Flash.
 
 ---
 

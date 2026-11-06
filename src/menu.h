@@ -31,6 +31,7 @@ struct Settings {
     uint16_t    sidetoneHz   = 800;                // 400 .. 2500 Hz
     uint8_t     sidetoneVol  = 100;                // 0 .. 100 % (100% = max. Leistung bei 50% PWM Duty)
     uint8_t     brightness   = 80;                 // 10 .. 100 %
+    bool        bleKeyboard  = true;               // Bluetooth HID Tastatur Ein/Aus
     TrainingSet trainingSet  = TrainingSet::KOCH;
     uint8_t     kochLevel    = 4;                  // 1 .. 40
 };
@@ -70,6 +71,7 @@ private:
         ITEM_TONE,
         ITEM_VOLUME,
         ITEM_BRIGHTNESS,
+        ITEM_BLE_KEYBOARD,
         ITEM_TRAIN_SET,
         ITEM_KOCH_LVL,
         ITEM_BACK,

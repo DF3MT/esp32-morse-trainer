@@ -31,10 +31,10 @@ public:
     void begin();
 
     // Decoded text screen — shown during free keying
-    void showDecodeScreen(const char* text, int wpm, bool autoMode, bool autoReady, bool keyDown);
+    void showDecodeScreen(const char* text, int wpm, bool autoMode, bool autoReady, bool keyDown, bool bleEnabled = false, bool bleConnected = false);
 
     // Training screen — show target and feedback
-    void showTrainingScreen(const TrainingChallenge& ch);
+    void showTrainingScreen(const TrainingChallenge& ch, bool keyDown = false, bool bleEnabled = false, bool bleConnected = false);
 
     // Menu screen with values, scrolling and edit-mode highlighting
     void showMenuScreen(const MenuItemView* items, uint8_t count, uint8_t selected, bool isEditing);
@@ -50,7 +50,7 @@ private:
     TFT_eSprite _spr;   // Full-screen sprite (double buffer)
     bool        _begun = false;
 
-    void drawStatusBar(const char* label, int wpm, bool autoMode, bool autoReady, bool keyDown);
+    void drawStatusBar(const char* label, int wpm, bool autoMode, bool autoReady, bool keyDown, bool bleEnabled = false, bool bleConnected = false);
 
     // Colour palette
     static const uint16_t C_BG     = TFT_BLACK;

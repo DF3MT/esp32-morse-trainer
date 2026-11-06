@@ -5,6 +5,7 @@
 #include "decoder.h"
 #include "display.h"
 #include "menu.h"
+#include "ble_manager.h"
 
 // ============================================================
 // Global objects
@@ -97,6 +98,9 @@ void onChar(char c) {
         trainingWaitingForSend = false;
     }
 
+    // Push decoded character to Bluetooth HID keyboard
+    BleManager::pushChar(c);
+
     displayDirty = true;
 }
 
@@ -113,24 +117,33 @@ void keyerTask(void* pvParams) {
     }
 }
 
-// Core 1: UI + menu (20ms loop, normal priority)
+// Core 1: UI + menu + BLE (20ms loop, normal priority)
 void uiTask(void* pvParams) {
     bool lastKeyDown = false;
     int  lastWpm     = -1;
     AppScreen lastScreen = AppScreen::DECODE;
     bool lastInMenu  = false;
+    bool lastBleConn = false;
 
     for (;;) {
         menu.tick();
+        BleManager::tick();
 
         bool inMenu = menu.isInMenu();
         bool keyDown = keyer.isKeyDown();
         int wpm = keyer.isAutoSpeed() ? keyer.getWpm() : menu.settings().wpm;
         AppScreen curScreen = menu.currentScreen();
+        bool bleConn = BleManager::isConnected();
+        bool bleEn   = menu.settings().bleKeyboard;
 
         if (inMenu != lastInMenu) {
             displayDirty = true;
             lastInMenu = inMenu;
+        }
+
+        if (bleConn != lastBleConn) {
+            displayDirty = true;
+            lastBleConn = bleConn;
         }
 
         if (!inMenu) {
@@ -153,7 +166,8 @@ void uiTask(void* pvParams) {
                         textCopy, wpm,
                         keyer.isAutoSpeed(),
                         keyer.isAutoSpeedReady(),
-                        keyer.isKeyDown());
+                        keyer.isKeyDown(),
+                        bleEn, bleConn);
                 } else if (curScreen == AppScreen::TRAINING) {
                     challenge.wpm       = wpm;
                     challenge.autoMode  = keyer.isAutoSpeed();
@@ -163,7 +177,7 @@ void uiTask(void* pvParams) {
                         challenge.target[1] = '\0';
                         challenge.sent[0]   = '\0';
                     }
-                    display.showTrainingScreen(challenge);
+                    display.showTrainingScreen(challenge, keyer.isKeyDown(), bleEn, bleConn);
 
                     // Advance to next target after 1.2s of feedback
                     if (!trainingWaitingForSend) {
@@ -201,6 +215,9 @@ void setup() {
 
     // Menu (loads settings from NVS, applies to keyer & hardware)
     menu.begin();
+
+    // Bluetooth Low Energy HID Keyboard
+    BleManager::begin(menu.settings().bleKeyboard);
 
     // Register callbacks
     keyer.onElement(onElement);

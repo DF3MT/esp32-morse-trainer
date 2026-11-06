@@ -62,9 +62,9 @@ void DisplayManager::setBrightness(uint8_t val) {
 }
 
 // ============================================================
-// Status bar — top 20px: [MODE] [WPM] [AUTO/MAN] [KEY indicator]
+// Status bar — top 20px: [MODE] [WPM] [BLE] [AUTO/MAN] [KEY indicator]
 // ============================================================
-void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bool autoReady, bool keyDown) {
+void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bool autoReady, bool keyDown, bool bleEnabled, bool bleConnected) {
     TFT_eSPI& target = _useSprite ? (TFT_eSPI&)_spr : _tft;
 
     target.fillRect(0, 0, 240, 20, C_BAR);
@@ -75,22 +75,41 @@ void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bo
     target.setCursor(4, 3);
     target.print(label);
 
-    // Centre: WPM
+    // Centre-left: WPM
     char buf[16];
     snprintf(buf, sizeof(buf), "%d WPM", wpm);
     target.setTextColor(C_FG, C_BAR);
-    target.setCursor(90, 3);
+    target.setCursor(76, 3);
     target.print(buf);
+
+    // Centre-right: BLE badge
+    if (bleEnabled) {
+        if (bleConnected) {
+            // Bright blue pill: connected
+            target.fillRoundRect(134, 2, 34, 16, 3, 0x03FF);
+            target.setTextColor(0x0000, 0x03FF);
+            target.setTextFont(2);
+            target.setCursor(137, 3);
+            target.print("BLE");
+        } else {
+            // Outline: advertising / waiting for host
+            target.drawRoundRect(134, 2, 34, 16, 3, 0x4208);
+            target.setTextColor(0x7BEF, C_BAR);
+            target.setTextFont(2);
+            target.setCursor(137, 3);
+            target.print("BLE");
+        }
+    }
 
     // Right: AUTO/MAN badge
     if (autoMode) {
         uint16_t col = autoReady ? C_OK : C_WARN;
         target.setTextColor(col, C_BAR);
-        target.setCursor(168, 3);
+        target.setCursor(176, 3);
         target.print(autoReady ? "AUTO" : "ACQ ");
     } else {
         target.setTextColor(C_DIM, C_BAR);
-        target.setCursor(168, 3);
+        target.setCursor(176, 3);
         target.print("MAN ");
     }
 
@@ -101,7 +120,7 @@ void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bo
 // ============================================================
 // Decode screen — shows 3 full lines of decoded text (rolling scroll)
 // ============================================================
-void DisplayManager::showDecodeScreen(const char* text, int wpm, bool autoMode, bool autoReady, bool keyDown) {
+void DisplayManager::showDecodeScreen(const char* text, int wpm, bool autoMode, bool autoReady, bool keyDown, bool bleEnabled, bool bleConnected) {
     if (!_begun) return;
     TFT_eSPI& target = _useSprite ? (TFT_eSPI&)_spr : _tft;
 
@@ -111,7 +130,7 @@ void DisplayManager::showDecodeScreen(const char* text, int wpm, bool autoMode, 
         _tft.fillScreen(C_BG);
     }
 
-    drawStatusBar("DECODE", wpm, autoMode, autoReady, keyDown);
+    drawStatusBar("DECODE", wpm, autoMode, autoReady, keyDown, bleEnabled, bleConnected);
 
     // Bottom hint
     target.fillRect(0, 118, 240, 17, 0x18C3);
@@ -238,7 +257,7 @@ static const char* getMorseHint(char c) {
 // ============================================================
 // Training screen
 // ============================================================
-void DisplayManager::showTrainingScreen(const TrainingChallenge& ch) {
+void DisplayManager::showTrainingScreen(const TrainingChallenge& ch, bool keyDown, bool bleEnabled, bool bleConnected) {
     if (!_begun) return;
     TFT_eSPI& target = _useSprite ? (TFT_eSPI&)_spr : _tft;
 
@@ -248,7 +267,7 @@ void DisplayManager::showTrainingScreen(const TrainingChallenge& ch) {
         _tft.fillScreen(C_BG);
     }
 
-    drawStatusBar("TRAINING", ch.wpm, ch.autoMode, ch.autoReady, false);
+    drawStatusBar("TRAINING", ch.wpm, ch.autoMode, ch.autoReady, keyDown, bleEnabled, bleConnected);
 
     // "Send:" label
     target.setTextFont(2);
