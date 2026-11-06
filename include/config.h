@@ -48,4 +48,4 @@
 // FreeRTOS task stack sizes
 // ============================================================
 #define KEYER_TASK_STACK   4096
-#define UI_TASK_STACK      8192
+#define UI_TASK_STACK      16384

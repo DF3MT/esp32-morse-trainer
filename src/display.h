@@ -34,10 +34,14 @@ public:
     void showSplashScreen();
 
     // Decoded text screen — shown during free keying
-    void showDecodeScreen(const char* text, int wpm, bool autoMode, bool autoReady, bool keyDown, bool bleEnabled = false, bool bleConnected = false);
+    void showDecodeScreen(const char* text, int wpm, bool autoMode, bool autoReady, bool keyDown,
+                          bool bleEnabled = false, bool bleConnected = false,
+                          bool wifiActive = false, uint8_t wifiClients = 0);
 
     // Training screen — show target and feedback
-    void showTrainingScreen(const TrainingChallenge& ch, bool keyDown = false, bool bleEnabled = false, bool bleConnected = false);
+    void showTrainingScreen(const TrainingChallenge& ch, bool keyDown = false,
+                           bool bleEnabled = false, bool bleConnected = false,
+                           bool wifiActive = false, uint8_t wifiClients = 0);
 
     // Menu screen with values, scrolling and edit-mode highlighting
     void showMenuScreen(const MenuItemView* items, uint8_t count, uint8_t selected, bool isEditing);
@@ -57,7 +61,9 @@ private:
     TFT_eSprite _spr;   // Full-screen sprite (double buffer)
     bool        _begun = false;
 
-    void drawStatusBar(const char* label, int wpm, bool autoMode, bool autoReady, bool keyDown, bool bleEnabled = false, bool bleConnected = false);
+    void drawStatusBar(const char* label, int wpm, bool autoMode, bool autoReady, bool keyDown,
+                       bool bleEnabled = false, bool bleConnected = false,
+                       bool wifiActive = false, uint8_t wifiClients = 0);
 
     // Colour palette
     static const uint16_t C_BG     = TFT_BLACK;

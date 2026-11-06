@@ -8,6 +8,8 @@
 #include "display.h"
 #include "menu.h"
 #include "ble_manager.h"
+#include "web_manager.h"
+#include <WiFi.h>
 
 // ============================================================
 // Global objects
@@ -15,7 +17,7 @@
 IambicKeyer     keyer(IambicMode::MODE_A, WPM_DEFAULT);
 MorseDecoder    decoder;
 DisplayManager  display;
-MenuController  menu(keyer, display);
+MenuController  menu(keyer, display, decoder);
 
 // Inactivity timer & Deep Sleep
 static volatile unsigned long lastActivityMs = 0;
@@ -34,6 +36,7 @@ static void enterDeepSleep() {
     // 2. Shut down peripherals
     Sidetone::off();
     BleManager::end();
+    WiFi.mode(WIFI_OFF);
     display.sleep();
 
     // 3. Configure RTC GPIO wakeup on Rotary Encoder Button (PIN_ENC_SW = GPIO 27)
@@ -137,17 +140,20 @@ static void getNextTrainingTarget(char* outTarget, size_t maxLen) {
 // Callbacks — called from keyer task (Core 0)
 // ============================================================
 
-// Element emitted by keyer → push to decoder
+// Element emitted by keyer → push to decoder & live web stream
 void onElement(KeyerElement e) {
     resetInactivityTimer();
     decoder.push(e);
+    WebManager::pushElement(e);
     displayDirty = true;
 }
 
-// Token decoded (character, prosign, or space) → append to text buffer & BLE
+// Token decoded (character, prosign, or space) → append to text buffer & BLE & Web
 void onToken(const char* token) {
     if (!token || !token[0]) return;
     resetInactivityTimer();
+    int currentWpm = keyer.isAutoSpeed() ? keyer.getWpm() : menu.settings().wpm;
+    WebManager::pushToken(token, currentWpm);
     Serial.printf("[MAIN] onToken: '%s'\n", token);
 
     portENTER_CRITICAL(&textMux);
@@ -232,17 +238,20 @@ void keyerTask(void* pvParams) {
     }
 }
 
-// Core 1: UI + menu + BLE (20ms loop, normal priority)
+// Core 1: UI + menu + BLE + Web (20ms loop, normal priority)
 void uiTask(void* pvParams) {
     bool lastKeyDown = false;
     int  lastWpm     = -1;
     AppScreen lastScreen = AppScreen::DECODE;
     bool lastInMenu  = false;
     bool lastBleConn = false;
+    bool lastWifiActive = false;
+    uint8_t lastWifiClients = 0;
 
     for (;;) {
         menu.tick();
         BleManager::tick();
+        WebManager::tick();
 
         bool inMenu = menu.isInMenu();
         bool keyDown = keyer.isKeyDown();
@@ -250,6 +259,8 @@ void uiTask(void* pvParams) {
         AppScreen curScreen = menu.currentScreen();
         bool bleConn = BleManager::isConnected();
         bool bleEn   = menu.settings().bleKeyboard;
+        bool wifiActive = WebManager::isApActive();
+        uint8_t wifiClients = WebManager::getClientCount();
 
         if (inMenu != lastInMenu) {
             displayDirty = true;
@@ -261,11 +272,22 @@ void uiTask(void* pvParams) {
             lastBleConn = bleConn;
         }
 
+        if (wifiActive != lastWifiActive || wifiClients != lastWifiClients) {
+            displayDirty = true;
+            lastWifiActive = wifiActive;
+            lastWifiClients = wifiClients;
+        }
+
         // Reset inactivity timer on any user interaction
         if (inMenu || keyDown || wpm != lastWpm ||
             digitalRead(PIN_DIT) == LOW || digitalRead(PIN_DAH) == LOW ||
             digitalRead(PIN_ENC_SW) == LOW) {
             resetInactivityTimer();
+        }
+
+        // Push WPM update to web clients if speed changed
+        if (wpm != lastWpm) {
+            WebManager::pushWpm(wpm);
         }
 
         // Deep Sleep Inactivity Check (only outside menu)
@@ -298,7 +320,8 @@ void uiTask(void* pvParams) {
                         keyer.isAutoSpeed(),
                         keyer.isAutoSpeedReady(),
                         keyer.isKeyDown(),
-                        bleEn, bleConn);
+                        bleEn, bleConn,
+                        wifiActive, wifiClients);
                 } else if (curScreen == AppScreen::TRAINING) {
                     challenge.wpm       = wpm;
                     challenge.autoMode  = keyer.isAutoSpeed();
@@ -318,7 +341,7 @@ void uiTask(void* pvParams) {
                         strncpy(challenge.sent, trainingSent, sizeof(challenge.sent) - 1);
                         challenge.sent[sizeof(challenge.sent) - 1] = '\0';
                     }
-                    display.showTrainingScreen(challenge, keyer.isKeyDown(), bleEn, bleConn);
+                    display.showTrainingScreen(challenge, keyer.isKeyDown(), bleEn, bleConn, wifiActive, wifiClients);
 
                     // Advance to next target after 1.2s of feedback
                     if (!trainingWaitingForSend) {
@@ -370,12 +393,16 @@ void setup() {
     // Display
     display.begin();
 
+    // Wi-Fi Access Point & Real-time Web Terminal
+    WebManager::begin();
+
     // On cold boot, wait indefinitely on splash screen until user presses paddle or rotary encoder
     if (wakeup_reason != ESP_SLEEP_WAKEUP_EXT0) {
         // Wait for any button or paddle press
         while (digitalRead(PIN_DIT) == HIGH &&
                digitalRead(PIN_DAH) == HIGH &&
                digitalRead(PIN_ENC_SW) == HIGH) {
+            WebManager::tick();
             delay(10);
         }
 
@@ -383,6 +410,7 @@ void setup() {
         while (digitalRead(PIN_DIT) == LOW ||
                digitalRead(PIN_DAH) == LOW ||
                digitalRead(PIN_ENC_SW) == LOW) {
+            WebManager::tick();
             delay(10);
         }
         delay(60); // Debounce button release

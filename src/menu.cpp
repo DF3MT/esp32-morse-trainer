@@ -13,10 +13,11 @@ static void IRAM_ATTR encoderISR_wrapper() {
 
 const char MenuController::KOCH_SEQUENCE[] = "KMRSUAPTLONWJEF0Y,VG5/Q9ZH38B?427C1D6X";
 
-MenuController::MenuController(IambicKeyer& keyer, DisplayManager& display)
+MenuController::MenuController(IambicKeyer& keyer, DisplayManager& display, MorseDecoder& decoder)
     : _encoder(PIN_ENC_DT, PIN_ENC_CLK, PIN_ENC_SW, -1, 4) // DT and CLK swapped to invert rotation direction
     , _keyer(keyer)
     , _display(display)
+    , _decoder(decoder)
 {}
 
 void MenuController::begin() {
@@ -116,6 +117,12 @@ void MenuController::handleMenuNavigation() {
 
             case ITEM_PADDLE_SWAP:
                 _settings.paddleSwap = !_settings.paddleSwap;
+                applySettings();
+                saveSettings();
+                return;
+
+            case ITEM_PAUSE_TOL:
+                _settings.pauseTolerance = (_settings.pauseTolerance + 1) % 3;
                 applySettings();
                 saveSettings();
                 return;
@@ -300,7 +307,14 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
              "%s", _settings.paddleSwap ? "Getauscht" : "Normal");
     viewItems[ITEM_PADDLE_SWAP].isAction = true;
 
-    // 5. Tone
+    // 5. Pause Tolerance
+    viewItems[ITEM_PAUSE_TOL].label = "Pausen-Toleranz";
+    static const char* pauseNames[] = { "Standard", "Grosszuegig", "Sehr weit" };
+    snprintf(viewItems[ITEM_PAUSE_TOL].value, sizeof(viewItems[ITEM_PAUSE_TOL].value),
+             "%s", pauseNames[constrain((int)_settings.pauseTolerance, 0, 2)]);
+    viewItems[ITEM_PAUSE_TOL].isAction = true;
+
+    // 6. Tone
     viewItems[ITEM_TONE].label = "Tonhoehe";
     snprintf(viewItems[ITEM_TONE].value, sizeof(viewItems[ITEM_TONE].value), "%d Hz", _settings.sidetoneHz);
     viewItems[ITEM_TONE].isAction = false;
@@ -410,6 +424,20 @@ void MenuController::applySettings(bool playFeedback) {
     BleManager::setEnabled(_settings.bleKeyboard);
     BleManager::setLayout(_settings.bleLayout);
 
+    // Apply pause tolerances to decoder
+    switch (_settings.pauseTolerance) {
+        case 0: // Standard
+            _decoder.setPauseTolerance(3.5f, 7.0f, 220, 500);
+            break;
+        case 2: // Sehr weit / Anfänger
+            _decoder.setPauseTolerance(5.2f, 10.0f, 350, 850);
+            break;
+        case 1: // Grosszügig (empfohlen / default)
+        default:
+            _decoder.setPauseTolerance(4.2f, 8.0f, 280, 650);
+            break;
+    }
+
     if (playFeedback) {
         Sidetone::playBeep(40);
     }
@@ -426,6 +454,7 @@ void MenuController::saveSettings() {
         prefs.putBool("auto",  _settings.autoSpeed);
         prefs.putInt("mode",   (int)_settings.keyerMode);
         prefs.putBool("swap",  _settings.paddleSwap);
+        prefs.putUChar("pauseTol", _settings.pauseTolerance);
         prefs.putUShort("tone",_settings.sidetoneHz);
         prefs.putUChar("vol",  _settings.sidetoneVol);
         prefs.putUChar("brt",  _settings.brightness);
@@ -446,6 +475,7 @@ void MenuController::loadSettings() {
         _settings.autoSpeed   = prefs.getBool("auto",    false);
         _settings.keyerMode   = (IambicMode)prefs.getInt("mode", (int)IambicMode::MODE_A);
         _settings.paddleSwap  = prefs.getBool("swap",    false);
+        _settings.pauseTolerance = prefs.getUChar("pauseTol", 1);
         _settings.sidetoneHz  = prefs.getUShort("tone",  800);
         _settings.sidetoneVol = prefs.getUChar("vol",    100);
         _settings.brightness  = prefs.getUChar("brt",    80);
