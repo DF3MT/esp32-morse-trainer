@@ -370,15 +370,23 @@ void setup() {
     // Display
     display.begin();
 
-    // On cold boot, hold splash screen for ~1.8s (or until any user input)
+    // On cold boot, wait indefinitely on splash screen until user presses paddle or rotary encoder
     if (wakeup_reason != ESP_SLEEP_WAKEUP_EXT0) {
-        unsigned long splashStart = millis();
-        while (millis() - splashStart < 1800) {
-            if (digitalRead(PIN_DIT) == LOW || digitalRead(PIN_DAH) == LOW || digitalRead(PIN_ENC_SW) == LOW) {
-                break;
-            }
+        // Wait for any button or paddle press
+        while (digitalRead(PIN_DIT) == HIGH &&
+               digitalRead(PIN_DAH) == HIGH &&
+               digitalRead(PIN_ENC_SW) == HIGH) {
             delay(10);
         }
+
+        // Wait until released so it doesn't immediately key a dit or open the menu
+        while (digitalRead(PIN_DIT) == LOW ||
+               digitalRead(PIN_DAH) == LOW ||
+               digitalRead(PIN_ENC_SW) == LOW) {
+            delay(10);
+        }
+        delay(60); // Debounce button release
+        Sidetone::playBeep(45); // Audible confirmation
     }
 
     // Menu (loads settings from NVS, applies to keyer & hardware)

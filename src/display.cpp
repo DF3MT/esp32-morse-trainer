@@ -56,23 +56,27 @@ void DisplayManager::showSplashScreen() {
     target.setTextFont(4);
     target.setTextSize(2);
     target.setTextColor(C_FG, C_BG);
-    target.drawString("DF3MT", 120, 14);
+    target.drawString("DF3MT", 120, 12);
     target.setTextSize(1); // Reset size back to 1
 
     // 2. Subtle horizontal separator line
-    target.drawFastHLine(30, 72, 180, C_BAR);
+    target.drawFastHLine(30, 68, 180, C_BAR);
 
     // 3. URL 1: https://df3mt.de (Cyan, Font 2)
     target.setTextDatum(TC_DATUM);
     target.setTextFont(2);
     target.setTextColor(C_ACCENT, C_BG);
-    target.drawString("https://df3mt.de", 120, 80);
+    target.drawString("https://df3mt.de", 120, 74);
 
     // 4. URL 2: GitHub URL (Yellow/Gold, Font 1)
     target.setTextDatum(TC_DATUM);
     target.setTextFont(1);
     target.setTextColor(C_WARN, C_BG);
-    target.drawString("github.com/DF3MT/esp32-morse-trainer", 120, 104);
+    target.drawString("github.com/DF3MT/esp32-morse-trainer", 120, 96);
+
+    // 5. User prompt: wait for paddle or button (Dim grey, Font 1)
+    target.setTextColor(C_DIM, C_BG);
+    target.drawString("[ Taste oder Paddle druecken ]", 120, 114);
 
     if (_useSprite) {
         _spr.pushSprite(0, 0);
