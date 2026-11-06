@@ -14,7 +14,7 @@ static void IRAM_ATTR encoderISR_wrapper() {
 const char MenuController::KOCH_SEQUENCE[] = "KMRSUAPTLONWJEF0Y,VG5/Q9ZH38B?427C1D6X";
 
 MenuController::MenuController(IambicKeyer& keyer, DisplayManager& display)
-    : _encoder(PIN_ENC_CLK, PIN_ENC_DT, PIN_ENC_SW, -1, 4)
+    : _encoder(PIN_ENC_DT, PIN_ENC_CLK, PIN_ENC_SW, -1, 4) // DT and CLK swapped to invert rotation direction
     , _keyer(keyer)
     , _display(display)
 {}
