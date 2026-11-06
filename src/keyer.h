@@ -57,18 +57,14 @@ private:
     float          _pendingT;
     unsigned long  _stateStart = 0;
 
-    // Paddle memory
+    // Paddle memory and squeeze tracking
     bool          _paddleSwap       = false;
     volatile bool _ditMem           = false;
     volatile bool _dahMem           = false;
+    bool          _squeezeOccurred  = false;
     bool          _lastWasDah       = false;
-    bool          _modeB_extraFired = false;
 
-    // Continuous hold vs tap detection
-    bool          _ditReleased      = true;
-    bool          _dahReleased      = true;
-
-    // Paddle debounce state (member variables for instance isolation)
+    // Paddle debounce state (member variables for instance isolation, 5ms filter)
     unsigned long _ditLastChange    = 0;
     bool          _ditStable        = false;
     unsigned long _dahLastChange    = 0;

@@ -26,13 +26,13 @@ IambicMode IambicKeyer::getMode()   const { return _mode; }
 bool  IambicKeyer::isKeyDown()      const { return _keyDown; }
 
 // ============================================================
-// Debounced paddle reading (10ms filter against contact bounce)
+// Debounced paddle reading (5ms filter for ultra-fast response)
 // ============================================================
 bool IambicKeyer::readDit() {
     uint8_t pin = _paddleSwap ? PIN_DAH : PIN_DIT;
     bool raw = (digitalRead(pin) == LOW);
     if (raw != _ditStable) {
-        if (millis() - _ditLastChange >= 10) {
+        if (millis() - _ditLastChange >= 5) {
             _ditStable = raw;
             _ditLastChange = millis();
         }
@@ -46,7 +46,7 @@ bool IambicKeyer::readDah() {
     uint8_t pin = _paddleSwap ? PIN_DIT : PIN_DAH;
     bool raw = (digitalRead(pin) == LOW);
     if (raw != _dahStable) {
-        if (millis() - _dahLastChange >= 10) {
+        if (millis() - _dahLastChange >= 5) {
             _dahStable = raw;
             _dahLastChange = millis();
         }
@@ -63,13 +63,12 @@ void IambicKeyer::update() {
     bool dit = readDit();
     bool dah = readDah();
 
-    // Track whether paddles were released during this element
-    // A tap will release the paddle before the space finishes;
-    // a continuous hold keeps the paddle pressed throughout.
-    if (!dit) _ditReleased = true;
-    if (!dah) _dahReleased = true;
+    // Squeeze detection: true if both paddles are simultaneously pressed
+    if (dit && dah) {
+        _squeezeOccurred = true;
+    }
 
-    // Latch memory for the OPPOSITE paddle while an element is in progress
+    // Latch memory for the OPPOSITE paddle while an element (tone or space) is in progress
     if (_state == State::SENDING_DIT || _state == State::DIT_SPACE) {
         if (dah) _dahMem = true;
     } else if (_state == State::SENDING_DAH || _state == State::DAH_SPACE) {
@@ -80,15 +79,18 @@ void IambicKeyer::update() {
 
     switch (_state) {
         case State::IDLE:
-            if (dit) {
+            if (dit && dah) {
+                // Simultaneous squeeze from IDLE: Dit priority (Curtis standard)
                 _ditMem = false;
                 _dahMem = false;
-                _modeB_extraFired = false;
+                startDit();
+            } else if (dit) {
+                _ditMem = false;
+                _dahMem = false;
                 startDit();
             } else if (dah) {
                 _ditMem = false;
                 _dahMem = false;
-                _modeB_extraFired = false;
                 startDah();
             }
             break;
@@ -103,7 +105,6 @@ void IambicKeyer::update() {
 
         case State::DIT_SPACE:
             if (elapsed >= (unsigned long)_activeT) {
-                _lastWasDah = false;
                 decideNext();
             }
             break;
@@ -118,7 +119,6 @@ void IambicKeyer::update() {
 
         case State::DAH_SPACE:
             if (elapsed >= (unsigned long)_activeT) {
-                _lastWasDah = true;
                 decideNext();
             }
             break;
@@ -127,90 +127,113 @@ void IambicKeyer::update() {
 
 // ============================================================
 // Element decision after inter-element gap (1T silence)
+// Follows strict Curtis 8044 Mode A / WB4VVF Mode B standards:
+// - Mode A: when both paddles are released, finish current element and STOP.
+// - Mode B: when both paddles are released, add ONE alternating element.
 // ============================================================
 void IambicKeyer::decideNext() {
     bool liveDit = readDit();
     bool liveDah = readDah();
 
-    // Squeeze detection: both paddles active or latched
-    bool squeeze = (liveDit && liveDah) || (_ditMem && _dahMem);
-
-    if (squeeze) {
-        // Alternate from last element
+    // 1. Both paddles currently pressed (active squeeze continuing)
+    if (liveDit && liveDah) {
         if (_lastWasDah) {
-            _ditMem = false;
             startDit();
         } else {
-            _dahMem = false;
             startDah();
         }
-        _modeB_extraFired = false;
-    } else if (_lastWasDah) {
-        // Previous element was DAH
-        if (_ditMem) {
-            _ditMem = false;
-            startDit();
-            _modeB_extraFired = false;
-        } else if (liveDit) {
-            startDit();
-            _modeB_extraFired = false;
-        } else if (liveDah && !_dahReleased) {
-            // Operator is CONTINUOUSLY HOLDING Dah paddle -> repeat Dah
-            startDah();
-            _modeB_extraFired = false;
-        } else if (_mode == IambicMode::MODE_B && _dahMem && !_modeB_extraFired) {
-            _modeB_extraFired = true;
-            _dahMem = false;
-            startDit();
-        } else {
-            // Released -> return to IDLE
-            _ditMem = false;
-            _dahMem = false;
-            _modeB_extraFired = false;
-            _state = State::IDLE;
-        }
-    } else {
-        // Previous element was DIT
-        if (_dahMem) {
-            _dahMem = false;
-            startDah();
-            _modeB_extraFired = false;
-        } else if (liveDah) {
-            startDah();
-            _modeB_extraFired = false;
-        } else if (liveDit && !_ditReleased) {
-            // Operator is CONTINUOUSLY HOLDING Dit paddle -> repeat Dit
-            startDit();
-            _modeB_extraFired = false;
-        } else if (_mode == IambicMode::MODE_B && _ditMem && !_modeB_extraFired) {
-            _modeB_extraFired = true;
-            _ditMem = false;
-            startDah();
-        } else {
-            // Released -> return to IDLE
-            _ditMem = false;
-            _dahMem = false;
-            _modeB_extraFired = false;
-            _state = State::IDLE;
-        }
+        return;
     }
+
+    // 2. Only Dit paddle currently pressed
+    if (liveDit && !liveDah) {
+        if (_lastWasDah) {
+            // Alternation from Dah to Dit
+            startDit();
+        } else if (_dahMem) {
+            // Operator tapped Dah while holding Dit (e.g. 'R' . - .)
+            _dahMem = false;
+            startDah();
+        } else {
+            // Continuous Dit hold (e.g. . . . .)
+            startDit();
+        }
+        return;
+    }
+
+    // 3. Only Dah paddle currently pressed
+    if (liveDah && !liveDit) {
+        if (!_lastWasDah) {
+            // Alternation from Dit to Dah
+            startDah();
+        } else if (_ditMem) {
+            // Operator tapped Dit while holding Dah (e.g. 'K' - . -)
+            _ditMem = false;
+            startDit();
+        } else {
+            // Continuous Dah hold (e.g. - - - -)
+            startDah();
+        }
+        return;
+    }
+
+    // 4. Neither paddle currently pressed (both released)
+    if (_squeezeOccurred) {
+        // Both paddles were squeezed during the element and then released.
+        _squeezeOccurred = false;
+        _ditMem = false;
+        _dahMem = false;
+
+        if (_mode == IambicMode::MODE_B) {
+            // Mode B (Accu-Keyer): insert one final opposite element before stopping
+            if (_lastWasDah) {
+                startDit();
+            } else {
+                startDah();
+            }
+        } else {
+            // Mode A (Curtis 8044): complete current element and stop dead!
+            _state = State::IDLE;
+        }
+        return;
+    }
+
+    // 5. Neither paddle currently pressed, and not a squeeze:
+    // Single-paddle memory (dot/dash memory for sequential keying like 'A' or 'N')
+    if (!_lastWasDah && _dahMem) {
+        _dahMem = false;
+        startDah();
+        return;
+    }
+    if (_lastWasDah && _ditMem) {
+        _ditMem = false;
+        startDit();
+        return;
+    }
+
+    // 6. No paddles pressed, no memories -> IDLE
+    _ditMem = false;
+    _dahMem = false;
+    _state = State::IDLE;
 }
 
 void IambicKeyer::startDit() {
     keyOn();
-    _stateStart  = millis();
-    _state       = State::SENDING_DIT;
-    _lastWasDah  = false;
-    _ditReleased = false; // New dit started: reset release detector
+    _stateStart      = millis();
+    _state           = State::SENDING_DIT;
+    _lastWasDah      = false;
+    _ditMem          = false;
+    _squeezeOccurred = (readDit() && readDah());
     if (_elemCb) _elemCb(KeyerElement::DIT);
 }
 
 void IambicKeyer::startDah() {
     keyOn();
-    _stateStart  = millis();
-    _state       = State::SENDING_DAH;
-    _lastWasDah  = true;
-    _dahReleased = false; // New dah started: reset release detector
+    _stateStart      = millis();
+    _state           = State::SENDING_DAH;
+    _lastWasDah      = true;
+    _dahMem          = false;
+    _squeezeOccurred = (readDit() && readDah());
     if (_elemCb) _elemCb(KeyerElement::DAH);
 }
 
