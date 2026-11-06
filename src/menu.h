@@ -3,7 +3,6 @@
 #include <AiEsp32RotaryEncoder.h>
 #include "config.h"
 #include "keyer.h"
-#include "decoder.h"
 #include "display.h"
 #include "ble_manager.h"
 
@@ -32,7 +31,6 @@ struct Settings {
     bool        autoSpeed    = false;              // Standard: AUS (Manuelles Tempo per Drehencoder)
     IambicMode  keyerMode    = IambicMode::MODE_A; // Mode A / Mode B
     bool        paddleSwap   = false;              // false = Normal, true = Getauscht
-    uint8_t     pauseTolerance = 1;                // 0 = Standard (3.5T), 1 = Grosszuegig (4.2T, default), 2 = Sehr weit (5.2T)
     uint16_t    sidetoneHz   = 800;                // 400 .. 2500 Hz
     uint8_t     sidetoneVol  = 100;                // 0 .. 100 % (100% = max. Leistung bei 50% PWM Duty)
     uint8_t     brightness   = 80;                 // 10 .. 100 %
@@ -45,7 +43,7 @@ struct Settings {
 
 class MenuController {
 public:
-    MenuController(IambicKeyer& keyer, DisplayManager& display, MorseDecoder& decoder);
+    MenuController(IambicKeyer& keyer, DisplayManager& display);
 
     void begin();
     void tick();   // Aufruf aus dem UI-Task alle ~20ms
@@ -63,7 +61,6 @@ private:
     AiEsp32RotaryEncoder _encoder;
     IambicKeyer&         _keyer;
     DisplayManager&      _display;
-    MorseDecoder&        _decoder;
 
     Settings  _settings;
     bool      _inMenu     = false;
@@ -76,7 +73,6 @@ private:
         ITEM_AUTOSPEED,
         ITEM_KEYER_MODE,
         ITEM_PADDLE_SWAP,
-        ITEM_PAUSE_TOL,
         ITEM_TONE,
         ITEM_VOLUME,
         ITEM_BRIGHTNESS,

@@ -71,19 +71,6 @@ MorseDecoder::MorseDecoder() {
     _pattern[0] = '\0';
     _patLen = 0;
     _lastSilenceStart = millis();
-    _charSpaceMult  = 4.2f;
-    _wordSpaceMult  = 8.0f;
-    _minCharSpaceMs = 280;
-    _minWordSpaceMs = 650;
-}
-
-void MorseDecoder::setPauseTolerance(float charMult, float wordMult, unsigned long minCharMs, unsigned long minWordMs) {
-    _charSpaceMult  = charMult;
-    _wordSpaceMult  = wordMult;
-    _minCharSpaceMs = minCharMs;
-    _minWordSpaceMs = minWordMs;
-    Serial.printf("[DEC] Pause config: charMult=%.1f (min %lu ms), wordMult=%.1f (min %lu ms)\n",
-                  charMult, minCharMs, wordMult, minWordMs);
 }
 
 void MorseDecoder::push(KeyerElement elem) {
@@ -112,21 +99,15 @@ void MorseDecoder::tick(float keyerT_ms, bool isKeyDown) {
 
     unsigned long silence = millis() - _lastSilenceStart;
 
-    unsigned long charThreshold = (unsigned long)(keyerT_ms * _charSpaceMult);
-    if (charThreshold < _minCharSpaceMs) charThreshold = _minCharSpaceMs;
-
-    unsigned long wordThreshold = (unsigned long)(keyerT_ms * _wordSpaceMult);
-    if (wordThreshold < _minWordSpaceMs) wordThreshold = _minWordSpaceMs;
-
-    // 1. Inter-character gap: emit decoded token when letter pause reached
-    if (_active && silence >= charThreshold) {
+    // 1. Inter-character gap: 2.5T silence after element ends -> emit decoded token
+    if (_active && silence >= (unsigned long)(keyerT_ms * 2.5f)) {
         emitToken();
         _active = false;
         _spacePending = true;
     }
 
-    // 2. Inter-word gap: emit word space when word pause reached
-    if (_spacePending && silence >= wordThreshold) {
+    // 2. Inter-word gap: 5.0T silence -> emit word space
+    if (_spacePending && silence >= (unsigned long)(keyerT_ms * 5.0f)) {
         _spacePending = false;
         if (_tokenCb) _tokenCb(" ");
         if (_charCb)  _charCb(' ');

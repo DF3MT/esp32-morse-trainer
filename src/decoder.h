@@ -22,10 +22,6 @@ public:
     // Call every 1ms so inter-character/word gaps can be detected
     void tick(float keyerT_ms, bool isKeyDown = false);
 
-    // Configure pause tolerances
-    void setPauseTolerance(float charMult = 4.2f, float wordMult = 8.0f,
-                           unsigned long minCharMs = 280, unsigned long minWordMs = 650);
-
     void onToken(TokenCallback cb) { _tokenCb = cb; }
     void onChar(CharCallback cb)   { _charCb = cb; }
     void reset();
@@ -46,11 +42,6 @@ private:
     unsigned long _lastSilenceStart = 0;   // millis() when tone stopped
     bool          _active           = false;
     bool          _spacePending     = false;
-
-    float         _charSpaceMult    = 4.2f;
-    float         _wordSpaceMult    = 8.0f;
-    unsigned long _minCharSpaceMs   = 280;
-    unsigned long _minWordSpaceMs   = 650;
 
     TokenCallback _tokenCb          = nullptr;
     CharCallback  _charCb           = nullptr;

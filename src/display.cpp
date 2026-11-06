@@ -168,28 +168,28 @@ void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bo
     target.setCursor(3, 3);
     target.print(label);
 
-    // Centre-left: WPM
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%dW", wpm);
+    // Centre-left: WPM & BpM (Buchstaben pro Minute = WPM * 5)
+    char buf[20];
+    snprintf(buf, sizeof(buf), "%dW/%dB", wpm, wpm * 5);
     target.setTextColor(C_FG, C_BAR);
-    target.setCursor(54, 3);
+    target.setCursor(48, 3);
     target.print(buf);
 
     // Wi-Fi AP badge
     if (wifiActive) {
         if (wifiClients > 0) {
             // Bright green: connected client(s)
-            target.fillRoundRect(90, 2, 38, 16, 3, C_OK);
+            target.fillRoundRect(106, 2, 30, 16, 3, C_OK);
             target.setTextColor(0x0000, C_OK);
             target.setTextFont(2);
-            target.setCursor(94, 3);
+            target.setCursor(109, 3);
             target.print("AP*");
         } else {
             // Outline: AP listening
-            target.drawRoundRect(90, 2, 38, 16, 3, 0x07FF);
+            target.drawRoundRect(106, 2, 30, 16, 3, 0x07FF);
             target.setTextColor(0x07FF, C_BAR);
             target.setTextFont(2);
-            target.setCursor(97, 3);
+            target.setCursor(111, 3);
             target.print("AP");
         }
     }
@@ -198,17 +198,17 @@ void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bo
     if (bleEnabled) {
         if (bleConnected) {
             // Bright blue pill: connected
-            target.fillRoundRect(132, 2, 34, 16, 3, 0x03FF);
+            target.fillRoundRect(140, 2, 32, 16, 3, 0x03FF);
             target.setTextColor(0x0000, 0x03FF);
             target.setTextFont(2);
-            target.setCursor(135, 3);
+            target.setCursor(143, 3);
             target.print("BLE");
         } else {
             // Outline: advertising / waiting for host
-            target.drawRoundRect(132, 2, 34, 16, 3, 0x4208);
+            target.drawRoundRect(140, 2, 32, 16, 3, 0x4208);
             target.setTextColor(0x7BEF, C_BAR);
             target.setTextFont(2);
-            target.setCursor(135, 3);
+            target.setCursor(143, 3);
             target.print("BLE");
         }
     }
@@ -217,16 +217,16 @@ void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bo
     if (autoMode) {
         uint16_t col = autoReady ? C_OK : C_WARN;
         target.setTextColor(col, C_BAR);
-        target.setCursor(174, 3);
+        target.setCursor(176, 3);
         target.print(autoReady ? "AUTO" : "ACQ");
     } else {
         target.setTextColor(C_DIM, C_BAR);
-        target.setCursor(174, 3);
+        target.setCursor(176, 3);
         target.print("MAN");
     }
 
     // Key-down LED dot
-    target.fillCircle(230, 10, 5, keyDown ? C_OK : 0x3186);
+    target.fillCircle(232, 10, 4, keyDown ? C_OK : 0x3186);
 }
 
 // ============================================================
@@ -251,7 +251,7 @@ void DisplayManager::showDecodeScreen(const char* text, int wpm, bool autoMode, 
     target.setTextFont(1);
     target.setTextColor(C_ACCENT, 0x18C3);
     target.setCursor(4, 122);
-    target.print("DREHEN: WPM  |  KLICK: MENUE OEFFNEN");
+    target.print("DREHEN: WPM/BpM  |  KLICK: MENUE");
 
     // Decoded text: exactly 3 full lines in Font 4 (y = 24, 54, 84)
     target.setTextFont(4);
@@ -635,7 +635,7 @@ void DisplayManager::showScoreScreen(int correct, int total, int avgWpm) {
     target.setCursor(4, 100);
     target.print(buf);
 
-    snprintf(buf, sizeof(buf), "Durchschnitt: %d WPM", avgWpm);
+    snprintf(buf, sizeof(buf), "Durchschnitt: %d WPM (%d BpM)", avgWpm, avgWpm * 5);
     target.setTextColor(C_DIM, C_BG);
     target.setCursor(4, 118);
     target.print(buf);

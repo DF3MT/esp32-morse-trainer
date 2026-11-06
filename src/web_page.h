@@ -271,7 +271,7 @@ footer a:hover { text-decoration: underline; }
       <span class="live-dot"></span>
       <span id="connText">VERBUNDEN</span>
     </div>
-    <div class="wpm-badge" id="wpmBadge">-- WPM</div>
+    <div class="wpm-badge" id="wpmBadge">-- WPM &middot; -- BpM</div>
   </div>
 </header>
 <main>
@@ -286,7 +286,7 @@ footer a:hover { text-decoration: underline; }
     </div>
     <div class="stat-card">
       <span class="stat-title">Tempo</span>
-      <span class="stat-val" id="statWpm">-- WPM</span>
+      <span class="stat-val" id="statWpm">-- WPM &middot; -- BpM</span>
     </div>
     <div class="stat-card">
       <span class="stat-title">Sitzungszeit</span>
@@ -370,6 +370,14 @@ function updateStats() {
   statWords.textContent = wordCount;
 }
 
+function updateSpeedDisplay(wpm) {
+  if (!wpm) return;
+  const bpm = wpm * 5;
+  const str = `${wpm} WPM · ${bpm} BpM`;
+  wpmBadge.textContent = str;
+  statWpm.textContent = str;
+}
+
 function renderText(txt) {
   const formatted = txt.replace(/<([A-Z]{2,3})>/g, '<span class="prosign">&lt;$1&gt;</span>');
   textContent.innerHTML = formatted;
@@ -418,8 +426,7 @@ function connectWs() {
         renderText(textBuffer);
         updateStats();
         if (msg.wpm) {
-          wpmBadge.textContent = `${msg.wpm} WPM`;
-          statWpm.textContent = `${msg.wpm} WPM`;
+          updateSpeedDisplay(msg.wpm);
         }
         playSidetone(750, 60);
       } else if (msg.t === 'elem') {
@@ -427,8 +434,7 @@ function connectWs() {
         if (cur.length > 40) cur = cur.substring(cur.length - 35);
         rawStream.textContent = cur + msg.val;
       } else if (msg.t === 'wpm') {
-        wpmBadge.textContent = `${msg.val} WPM`;
-        statWpm.textContent = `${msg.val} WPM`;
+        updateSpeedDisplay(msg.val);
       } else if (msg.t === 'init') {
         textBuffer = msg.history || '';
         renderText(textBuffer);
@@ -436,8 +442,7 @@ function connectWs() {
         wordCount = (textBuffer.match(/\s+/g) || []).length;
         updateStats();
         if (msg.wpm) {
-          wpmBadge.textContent = `${msg.wpm} WPM`;
-          statWpm.textContent = `${msg.wpm} WPM`;
+          updateSpeedDisplay(msg.wpm);
         }
       }
     } catch (e) {

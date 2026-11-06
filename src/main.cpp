@@ -17,7 +17,7 @@
 IambicKeyer     keyer(IambicMode::MODE_A, WPM_DEFAULT);
 MorseDecoder    decoder;
 DisplayManager  display;
-MenuController  menu(keyer, display, decoder);
+MenuController  menu(keyer, display);
 
 // Inactivity timer & Deep Sleep
 static volatile unsigned long lastActivityMs = 0;
