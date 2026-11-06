@@ -77,7 +77,9 @@ void BleManager::sendRawKey(uint8_t keycode, uint8_t modifiers) {
     report.modifiers = modifiers;
     report.keys[0] = keycode;
     bleKeyboard.sendReport(&report);
+    vTaskDelay(15 / portTICK_PERIOD_MS);
     bleKeyboard.releaseAll();
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
 void BleManager::sendChar(char c) {

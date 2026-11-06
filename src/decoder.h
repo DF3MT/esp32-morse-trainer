@@ -27,9 +27,9 @@ public:
     int  getDecodedWpm() const;
 
 private:
-    static const char MORSE_TREE[128];
+    static const char MORSE_TREE[256];
 
-    uint8_t       _treeIdx          = 1;   // Current position in tree
+    uint16_t      _treeIdx          = 1;   // Current position in tree (1 = root, max 255)
     unsigned long _lastSilenceStart = 0;   // millis() when tone stopped
     bool          _active           = false;
     bool          _spacePending     = false;

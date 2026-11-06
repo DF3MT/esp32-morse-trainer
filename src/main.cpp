@@ -45,7 +45,7 @@ static char getNextTrainingTarget() {
             return digits[random(10)];
         }
         case TrainingSet::ALL_CHARS: {
-            const char* all = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?/";
+            const char* all = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?/=-:";
             return all[random(strlen(all))];
         }
         case TrainingSet::Q_CODES: {

@@ -26,13 +26,13 @@ IambicMode IambicKeyer::getMode()   const { return _mode; }
 bool  IambicKeyer::isKeyDown()      const { return _keyDown; }
 
 // ============================================================
-// Debounced paddle reading (5ms filter for ultra-fast response)
+// Debounced paddle reading (10ms filter against mechanical contact bounce)
 // ============================================================
 bool IambicKeyer::readDit() {
     uint8_t pin = _paddleSwap ? PIN_DAH : PIN_DIT;
     bool raw = (digitalRead(pin) == LOW);
     if (raw != _ditStable) {
-        if (millis() - _ditLastChange >= 5) {
+        if (millis() - _ditLastChange >= 10) {
             _ditStable = raw;
             _ditLastChange = millis();
         }
@@ -46,7 +46,7 @@ bool IambicKeyer::readDah() {
     uint8_t pin = _paddleSwap ? PIN_DIT : PIN_DAH;
     bool raw = (digitalRead(pin) == LOW);
     if (raw != _dahStable) {
-        if (millis() - _dahLastChange >= 5) {
+        if (millis() - _dahLastChange >= 10) {
             _dahStable = raw;
             _dahLastChange = millis();
         }
@@ -68,10 +68,11 @@ void IambicKeyer::update() {
         _squeezeOccurred = true;
     }
 
-    // Latch memory for the OPPOSITE paddle while an element (tone or space) is in progress
-    if (_state == State::SENDING_DIT || _state == State::DIT_SPACE) {
+    // Latch memory for the OPPOSITE paddle while active tone is sounding
+    // (Curtis standard: only latch during mark, not during space)
+    if (_state == State::SENDING_DIT) {
         if (dah) _dahMem = true;
-    } else if (_state == State::SENDING_DAH || _state == State::DAH_SPACE) {
+    } else if (_state == State::SENDING_DAH) {
         if (dit) _ditMem = true;
     }
 

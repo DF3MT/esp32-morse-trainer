@@ -250,6 +250,14 @@ static const char* getMorseHint(char c) {
         case '?': return "..--..";
         case '.': return ".-.-.-";
         case ',': return "--..--";
+        case '=': return "-...-";
+        case '-': return "-....-";
+        case ':': return "---...";
+        case ';': return "-.-.-.";
+        case '+': return ".-.-.";
+        case '(': return "-.--.";
+        case ')': return "-.--.-";
+        case '@': return ".--.-.";
         default:  return "";
     }
 }
