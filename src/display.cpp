@@ -16,10 +16,7 @@ void DisplayManager::begin() {
     _tft.init();
     _tft.setRotation(1);   // Landscape: 240 wide x 135 tall
 
-    // 3. Show full-screen DF3MT boot splash screen
-    showSplashScreen();
-
-    // 4. Try to allocate full-screen sprite (64.8 KB contiguous RAM)
+    // 3. Try to allocate full-screen sprite (64.8 KB contiguous RAM)
     void* sprPtr = _spr.createSprite(240, 135);
     _useSprite = (sprPtr != nullptr);
 
@@ -33,44 +30,53 @@ void DisplayManager::begin() {
     }
 
     _begun = true;
+
+    // 4. Show full-screen DF3MT boot splash screen
+    showSplashScreen();
 }
 
 // ============================================================
 // Full-screen Boot Splash Screen ("DF3MT", df3mt.de, github)
 // ============================================================
 void DisplayManager::showSplashScreen() {
-    _tft.fillScreen(C_BG);
+    TFT_eSPI& target = _useSprite ? (TFT_eSPI&)_spr : _tft;
+
+    if (_useSprite) {
+        _spr.fillSprite(C_BG);
+    } else {
+        _tft.fillScreen(C_BG);
+    }
 
     // Top & bottom accent border lines (Cyan)
-    _tft.drawFastHLine(8, 4, 224, C_ACCENT);
-    _tft.drawFastHLine(8, 130, 224, C_ACCENT);
+    target.drawFastHLine(10, 6, 220, C_ACCENT);
+    target.drawFastHLine(10, 128, 220, C_ACCENT);
 
-    // Main Callsign "DF3MT" — 52px tall (Font 4, size 2)
-    _tft.setTextFont(4);
-    _tft.setTextSize(2);
-    _tft.setTextColor(C_FG, C_BG);
-    int callWidth = _tft.textWidth("DF3MT", 4) * 2;
-    int callX = (240 - callWidth) / 2;
-    _tft.setCursor(callX, 12);
-    _tft.print("DF3MT");
-    _tft.setTextSize(1); // Reset size back to 1
+    // 1. Hero Callsign "DF3MT" — 52px tall (Font 4, size 2), mathematically centered at X = 120
+    target.setTextDatum(TC_DATUM);
+    target.setTextFont(4);
+    target.setTextSize(2);
+    target.setTextColor(C_FG, C_BG);
+    target.drawString("DF3MT", 120, 14);
+    target.setTextSize(1); // Reset size back to 1
 
-    // Subtle divider line
-    _tft.drawFastHLine(24, 68, 192, 0x2945);
+    // 2. Subtle horizontal separator line
+    target.drawFastHLine(30, 72, 180, C_BAR);
 
-    // URL 1: https://df3mt.de (Cyan, Font 2)
-    _tft.setTextFont(2);
-    _tft.setTextColor(C_ACCENT, C_BG);
-    _tft.drawCentreString("https://df3mt.de", 120, 74, 2);
+    // 3. URL 1: https://df3mt.de (Cyan, Font 2)
+    target.setTextDatum(TC_DATUM);
+    target.setTextFont(2);
+    target.setTextColor(C_ACCENT, C_BG);
+    target.drawString("https://df3mt.de", 120, 80);
 
-    // URL 2: GitHub URL (Yellow, Font 1)
-    _tft.setTextFont(1);
-    _tft.setTextColor(0xFFE0, C_BG);
-    _tft.drawCentreString("github.com/DF3MT/esp32-morse-trainer", 120, 96, 1);
+    // 4. URL 2: GitHub URL (Yellow/Gold, Font 1)
+    target.setTextDatum(TC_DATUM);
+    target.setTextFont(1);
+    target.setTextColor(C_WARN, C_BG);
+    target.drawString("github.com/DF3MT/esp32-morse-trainer", 120, 104);
 
-    // Subtitle: CW Trainer & BLE Keyer (Light grey, Font 1)
-    _tft.setTextColor(C_DIM, C_BG);
-    _tft.drawCentreString("CW MORSE TRAINER & BLE KEYER", 120, 112, 1);
+    if (_useSprite) {
+        _spr.pushSprite(0, 0);
+    }
 }
 
 void DisplayManager::setBrightness(uint8_t val) {
