@@ -8,7 +8,7 @@ namespace Sidetone {
     void     off();
     void     setFrequency(uint16_t freqHz);
     uint16_t getFrequency();
-    void     setVolume(uint8_t duty);   // 0–255 (128 = 50% max square wave)
+    void     setVolume(uint8_t percent);   // 0–100 % (calibrated logarithmic acoustic curve)
     uint8_t  getVolume();
     void     playBeep(uint16_t durationMs = 40);
 }

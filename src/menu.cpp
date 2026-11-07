@@ -397,10 +397,7 @@ void MenuController::applySettings(bool playFeedback) {
     _keyer.setWpm(_settings.wpm);
 
     Sidetone::setFrequency(_settings.sidetoneHz);
-
-    // Map volume 0..100% to duty cycle (0..128 for 50% max square wave)
-    uint8_t duty = (uint8_t)((_settings.sidetoneVol * 128) / 100);
-    Sidetone::setVolume(duty);
+    Sidetone::setVolume(_settings.sidetoneVol);
 
     // Map brightness 10..100% to PWM duty (0..255)
     uint8_t bl = (uint8_t)((_settings.brightness * 255) / 100);
