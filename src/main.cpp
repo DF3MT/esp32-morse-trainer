@@ -393,8 +393,11 @@ void setup() {
     // Display
     display.begin();
 
-    // Wi-Fi Access Point & Real-time Web Terminal
-    WebManager::begin();
+    // Menu (loads settings from NVS, applies to keyer, display brightness & hardware)
+    menu.begin();
+
+    // Wi-Fi Access Point & Real-time Web Terminal (starts if enabled in menu settings)
+    WebManager::begin(menu.settings().wifiEnabled);
 
     // On cold boot, wait indefinitely on splash screen until user presses paddle or rotary encoder
     if (wakeup_reason != ESP_SLEEP_WAKEUP_EXT0) {
@@ -416,9 +419,6 @@ void setup() {
         delay(60); // Debounce button release
         Sidetone::playBeep(45); // Audible confirmation
     }
-
-    // Menu (loads settings from NVS, applies to keyer & hardware)
-    menu.begin();
 
     // Bluetooth Low Energy HID Keyboard
     BleManager::begin(menu.settings().bleKeyboard, menu.settings().bleLayout);

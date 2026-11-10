@@ -1,13 +1,64 @@
 #include "ble_manager.h"
 #include <BleKeyboard.h>
+#include <NimBLEDevice.h>
 
 bool          BleManager::_enabled = false;
 bool          BleManager::_started = false;
 BleLayout     BleManager::_layout  = BleLayout::GERMAN_DE;
 QueueHandle_t BleManager::_queue   = nullptr;
 
-// BleKeyboard instance: Device Name, Manufacturer Name, Battery percentage
-static BleKeyboard bleKeyboard("CW-Keyer DF3MT", "DF3MT", 100);
+// ============================================================
+// Custom NimBLE-compatible BleKeyboard with optimized security
+// and connection parameters for coexistence with Wi-Fi SoftAP
+// ============================================================
+class MorseBleKeyboard : public BleKeyboard {
+public:
+    MorseBleKeyboard(std::string deviceName, std::string deviceManufacturer, uint8_t batteryLevel)
+        : BleKeyboard(deviceName, deviceManufacturer, batteryLevel) {}
+
+protected:
+    virtual void onStarted(BLEServer *pServer) override {
+        // Override BleKeyboard's default MITM=true security setting.
+        // For standard HID Keyboards without numeric entry/display, MITM must be false
+        // so Windows/macOS/iOS/Android perform seamless "Just Works" pairing.
+        NimBLEDevice::setSecurityAuth(true, false, false); // bonding=true, mitm=false, sc=false
+        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+        NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
+        NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
+        Serial.println("[BLE] Security initialized: Just Works (Bonding=ON, MITM=OFF, IO=None)");
+    }
+
+    virtual void onConnect(BLEServer* pServer, ble_gap_conn_desc* desc) override {
+        BleKeyboard::onConnect(pServer);
+        Serial.printf("[BLE] Host connected! Handle=%u, Interval=%u, Latency=%u, Timeout=%u\n",
+                      desc->conn_handle, desc->conn_itvl, desc->conn_latency, desc->supervision_timeout);
+
+        // Update connection parameters to ensure coexistence with Wi-Fi SoftAP:
+        // minInterval = 24 (30ms), maxInterval = 40 (50ms)
+        // latency = 2 (allows skipping 2 connection events when Wi-Fi radio is busy)
+        // timeout = 400 (4000ms = 4.0s supervision timeout to prevent Wi-Fi beacon dropouts)
+        pServer->updateConnParams(desc->conn_handle, 24, 40, 2, 400);
+    }
+
+    virtual void onDisconnect(BLEServer* pServer, ble_gap_conn_desc* desc) override {
+        BleKeyboard::onDisconnect(pServer);
+        Serial.printf("[BLE] Host disconnected (handle: %u).\n", desc->conn_handle);
+
+        // Ensure advertising is restarted so host can reconnect cleanly
+        NimBLEAdvertising* pAdv = pServer->getAdvertising();
+        if (pAdv && !pAdv->isAdvertising()) {
+            pAdv->start();
+            Serial.println("[BLE] Advertising restarted.");
+        }
+    }
+
+    virtual void onAuthenticationComplete(ble_gap_conn_desc* desc) override {
+        Serial.printf("[BLE] Authentication complete: paired=%d, bonded=%d, encrypted=%d\n",
+                      desc->sec_state.bonded, desc->sec_state.bonded, desc->sec_state.encrypted);
+    }
+};
+
+static MorseBleKeyboard bleKeyboard("CW-Keyer DF3MT", "DF3MT", 100);
 
 void BleManager::begin(bool enabled, BleLayout layout) {
     _layout = layout;
@@ -17,6 +68,11 @@ void BleManager::begin(bool enabled, BleLayout layout) {
     _enabled = enabled;
     if (_enabled && !_started) {
         bleKeyboard.begin();
+        // Redundant enforcement of Just Works pairing parameters
+        NimBLEDevice::setSecurityAuth(true, false, false);
+        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+        NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
+        NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
         _started = true;
         Serial.printf("[BLE] HID Keyboard started (Layout: %s). Advertising as 'CW-Keyer DF3MT'...\n",
                       _layout == BleLayout::GERMAN_DE ? "DE/QWERTZ" : "US/QWERTY");
@@ -36,6 +92,10 @@ void BleManager::setEnabled(bool enabled) {
     _enabled = enabled;
     if (_enabled && !_started) {
         bleKeyboard.begin();
+        NimBLEDevice::setSecurityAuth(true, false, false);
+        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+        NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
+        NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
         _started = true;
         Serial.println("[BLE] HID Keyboard enabled and started.");
     } else if (!_enabled && _started) {
@@ -63,6 +123,12 @@ void BleManager::setLayout(BleLayout layout) {
 
 BleLayout BleManager::getLayout() {
     return _layout;
+}
+
+void BleManager::clearBonds() {
+    Serial.println("[BLE] Clearing all stored Bluetooth pairing bonds...");
+    NimBLEDevice::deleteAllBonds();
+    Serial.printf("[BLE] Stored bonds remaining: %d\n", NimBLEDevice::getNumBonds());
 }
 
 void BleManager::pushChar(char c) {

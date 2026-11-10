@@ -6,7 +6,11 @@
 class WebManager {
 public:
     // Initialize Wi-Fi SoftAP ("DF3MT-MorseTrainer"), WebServer (80), and WebSockets (81)
-    static void begin(const char* ssid = "DF3MT-MorseTrainer", const char* password = nullptr);
+    static void begin(bool enabled = true, const char* ssid = "DF3MT-MorseTrainer", const char* password = nullptr);
+
+    // Turn Wi-Fi AP & web services on or off
+    static void setEnabled(bool enabled);
+    static bool isEnabled();
 
     // Handle incoming HTTP and WebSocket packets; process queued events.
     // MUST be called from Core 1 (uiTask) to avoid interrupting Core 0 1ms keyer loop.

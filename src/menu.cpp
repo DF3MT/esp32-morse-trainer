@@ -2,6 +2,7 @@
 #include "config.h"
 #include "sidetone.h"
 #include "ble_manager.h"
+#include "web_manager.h"
 #include <Preferences.h>
 
 static void IRAM_ATTR encoderISR_wrapper();
@@ -36,6 +37,7 @@ void MenuController::begin() {
 void MenuController::openMenu() {
     _inMenu = true;
     _isEditing = false;
+    _bondsResetFeedback = false;
     _encoder.setBoundaries(0, ITEM_COUNT - 1, false);
     _encoder.setEncoderValue(_menuIndex);
     _encoder.setAcceleration(0);
@@ -129,6 +131,18 @@ void MenuController::handleMenuNavigation() {
             case ITEM_BLE_LAYOUT:
                 _settings.bleLayout = (_settings.bleLayout == BleLayout::GERMAN_DE)
                                       ? BleLayout::US_EN : BleLayout::GERMAN_DE;
+                applySettings();
+                saveSettings();
+                return;
+
+            case ITEM_BLE_CLEAR_BONDS:
+                BleManager::clearBonds();
+                _bondsResetFeedback = true;
+                Sidetone::playBeep(60);
+                return;
+
+            case ITEM_WIFI:
+                _settings.wifiEnabled = !_settings.wifiEnabled;
                 applySettings();
                 saveSettings();
                 return;
@@ -332,7 +346,19 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
              "%s", (_settings.bleLayout == BleLayout::GERMAN_DE) ? "DE (QWERTZ)" : "US (QWERTY)");
     viewItems[ITEM_BLE_LAYOUT].isAction = true;
 
-    // 8. Training Set
+    // 10. BLE Clear Bonds
+    viewItems[ITEM_BLE_CLEAR_BONDS].label = "BT Paarung";
+    snprintf(viewItems[ITEM_BLE_CLEAR_BONDS].value, sizeof(viewItems[ITEM_BLE_CLEAR_BONDS].value),
+             "%s", _bondsResetFeedback ? "Geloescht!" : "Klick=Reset");
+    viewItems[ITEM_BLE_CLEAR_BONDS].isAction = true;
+
+    // 11. Wi-Fi SoftAP
+    viewItems[ITEM_WIFI].label = "WLAN SoftAP";
+    snprintf(viewItems[ITEM_WIFI].value, sizeof(viewItems[ITEM_WIFI].value),
+             "%s", _settings.wifiEnabled ? "AN" : "AUS");
+    viewItems[ITEM_WIFI].isAction = true;
+
+    // 12. Training Set
     viewItems[ITEM_TRAIN_SET].label = "Uebungssatz";
     const char* setName = "Koch";
     switch (_settings.trainingSet) {
@@ -407,6 +433,9 @@ void MenuController::applySettings(bool playFeedback) {
     BleManager::setEnabled(_settings.bleKeyboard);
     BleManager::setLayout(_settings.bleLayout);
 
+    // Sync Wi-Fi SoftAP state
+    WebManager::setEnabled(_settings.wifiEnabled);
+
     if (playFeedback) {
         Sidetone::playBeep(40);
     }
@@ -428,6 +457,7 @@ void MenuController::saveSettings() {
         prefs.putUChar("brt",  _settings.brightness);
         prefs.putBool("ble",   _settings.bleKeyboard);
         prefs.putUChar("blelay", (uint8_t)_settings.bleLayout);
+        prefs.putBool("wifi",  _settings.wifiEnabled);
         prefs.putInt("tset",   (int)_settings.trainingSet);
         prefs.putUChar("koch", _settings.kochLevel);
         prefs.putUChar("sleep", _settings.sleepTimeoutMin);
@@ -448,6 +478,7 @@ void MenuController::loadSettings() {
         _settings.brightness  = prefs.getUChar("brt",    80);
         _settings.bleKeyboard = prefs.getBool("ble",     true);
         _settings.bleLayout   = (BleLayout)prefs.getUChar("blelay", (uint8_t)BleLayout::GERMAN_DE);
+        _settings.wifiEnabled = prefs.getBool("wifi",    true);
         _settings.trainingSet = (TrainingSet)prefs.getInt("tset", (int)TrainingSet::KOCH);
         _settings.kochLevel   = prefs.getUChar("koch",   4);
         _settings.sleepTimeoutMin = prefs.getUChar("sleep", SLEEP_TIMEOUT_DEFAULT_MIN);

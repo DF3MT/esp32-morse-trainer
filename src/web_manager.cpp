@@ -26,6 +26,10 @@ static QueueHandle_t    _evtQueue = nullptr;
 static WebServer        _server(80);
 static WebSocketsServer _ws(81);
 static bool             _begun = false;
+static bool             _enabled = true;
+static bool             _serversRunning = false;
+static String           _ssid = "DF3MT-MorseTrainer";
+static String           _password = "";
 static int              _currentWpm = 20;
 static String           _history = "";
 static const size_t     MAX_HISTORY_LEN = 2048;
@@ -78,31 +82,26 @@ static void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_
 }
 
 // ============================================================
-// WebManager Public API
+// Internal AP & Web Services Lifecycle
 // ============================================================
+static void startApAndServers() {
+    if (_serversRunning) return;
 
-void WebManager::begin(const char* ssid, const char* password) {
-    if (_begun) return;
+    Serial.println("[WEB] Starting Wi-Fi SoftAP and Web Services...");
 
-    Serial.println("[WEB] Initializing Wi-Fi SoftAP and Web Services...");
-
-    // Create FreeRTOS queue for cross-core messaging (Core 0 keyer -> Core 1 web server)
-    _evtQueue = xQueueCreate(64, sizeof(WebEvt));
-
-    // Setup Wi-Fi SoftAP
     WiFi.persistent(false);
     WiFi.mode(WIFI_AP);
 
     IPAddress apIP(192, 168, 4, 1);
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
 
-    if (password && strlen(password) >= 8) {
-        WiFi.softAP(ssid, password, 1, 0, 4);
+    if (_password.length() >= 8) {
+        WiFi.softAP(_ssid.c_str(), _password.c_str(), 1, 0, 4);
     } else {
-        WiFi.softAP(ssid, nullptr, 1, 0, 4);
+        WiFi.softAP(_ssid.c_str(), nullptr, 1, 0, 4);
     }
 
-    Serial.printf("[WEB] Access Point '%s' active on IP %s\n", ssid, WiFi.softAPIP().toString().c_str());
+    Serial.printf("[WEB] Access Point '%s' active on IP %s\n", _ssid.c_str(), WiFi.softAPIP().toString().c_str());
 
     // Setup mDNS: http://df3mt.local and http://morse.local
     if (MDNS.begin("df3mt")) {
@@ -146,7 +145,58 @@ void WebManager::begin(const char* ssid, const char* password) {
     _ws.onEvent(onWebSocketEvent);
     Serial.println("[WEB] WebSocket Server started on port 81");
 
+    _serversRunning = true;
+}
+
+static void stopApAndServers() {
+    if (!_serversRunning) return;
+
+    Serial.println("[WEB] Stopping Wi-Fi SoftAP and Web Services...");
+    _ws.close();
+    _server.stop();
+    MDNS.end();
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_OFF);
+    _serversRunning = false;
+    Serial.println("[WEB] Wi-Fi SoftAP completely stopped (Radio OFF).");
+}
+
+// ============================================================
+// WebManager Public API
+// ============================================================
+
+void WebManager::begin(bool enabled, const char* ssid, const char* password) {
+    if (_begun) return;
+
+    _enabled = enabled;
+    if (ssid) _ssid = ssid;
+    if (password) _password = password;
+
+    // Create FreeRTOS queue for cross-core messaging (Core 0 keyer -> Core 1 web server)
+    _evtQueue = xQueueCreate(64, sizeof(WebEvt));
+
+    if (_enabled) {
+        startApAndServers();
+    } else {
+        WiFi.mode(WIFI_OFF);
+        Serial.println("[WEB] Wi-Fi initially disabled by configuration (Radio OFF).");
+    }
+
     _begun = true;
+}
+
+void WebManager::setEnabled(bool enabled) {
+    if (_enabled == enabled) return;
+    _enabled = enabled;
+    if (_enabled) {
+        startApAndServers();
+    } else {
+        stopApAndServers();
+    }
+}
+
+bool WebManager::isEnabled() {
+    return _enabled;
 }
 
 void WebManager::tick() {
@@ -162,20 +212,28 @@ void WebManager::tick() {
                 // Keep the most recent characters
                 _history = _history.substring(_history.length() - (MAX_HISTORY_LEN - 256));
             }
-            String payload = "{\"t\":\"token\",\"val\":\"" + escapeJson(ev.text) + "\",\"wpm\":" + String(ev.wpm) + "}";
-            _ws.broadcastTXT(payload);
+            if (_serversRunning) {
+                String payload = "{\"t\":\"token\",\"val\":\"" + escapeJson(ev.text) + "\",\"wpm\":" + String(ev.wpm) + "}";
+                _ws.broadcastTXT(payload);
+            }
         } else if (ev.type == WebEvtType::ELEM) {
-            String payload = "{\"t\":\"elem\",\"val\":\"" + String(ev.text) + "\"}";
-            _ws.broadcastTXT(payload);
+            if (_serversRunning) {
+                String payload = "{\"t\":\"elem\",\"val\":\"" + String(ev.text) + "\"}";
+                _ws.broadcastTXT(payload);
+            }
         } else if (ev.type == WebEvtType::WPM) {
             _currentWpm = ev.wpm;
-            String payload = "{\"t\":\"wpm\",\"val\":" + String(ev.wpm) + "}";
-            _ws.broadcastTXT(payload);
+            if (_serversRunning) {
+                String payload = "{\"t\":\"wpm\",\"val\":" + String(ev.wpm) + "}";
+                _ws.broadcastTXT(payload);
+            }
         }
     }
 
-    _ws.loop();
-    _server.handleClient();
+    if (_serversRunning) {
+        _ws.loop();
+        _server.handleClient();
+    }
 }
 
 void WebManager::pushToken(const char* token, int wpm) {
@@ -222,15 +280,15 @@ void WebManager::clearHistory() {
 }
 
 bool WebManager::isApActive() {
-    return _begun && (WiFi.getMode() & WIFI_AP);
+    return _begun && _serversRunning && (WiFi.getMode() & WIFI_AP);
 }
 
 uint8_t WebManager::getClientCount() {
-    if (!_begun) return 0;
+    if (!_begun || !_serversRunning) return 0;
     return _ws.connectedClients();
 }
 
 IPAddress WebManager::getIP() {
-    if (!_begun) return IPAddress(0, 0, 0, 0);
+    if (!_begun || !_serversRunning) return IPAddress(0, 0, 0, 0);
     return WiFi.softAPIP();
 }

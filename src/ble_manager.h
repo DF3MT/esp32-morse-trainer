@@ -35,6 +35,7 @@ public:
     static bool isConnected();
     static void setLayout(BleLayout layout);
     static BleLayout getLayout();
+    static void clearBonds();
     static void pushChar(char c);
     static void pushString(const char* str);
     static void tick(); // Periodic dispatch called from Core 1 (uiTask)
