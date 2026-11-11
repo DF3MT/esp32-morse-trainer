@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Determine version
         id: version
@@ -42,12 +42,12 @@ jobs:
           echo "Firmware version: $VERSION"
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
       - name: Cache PlatformIO
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.platformio
           key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini') }}
@@ -98,14 +98,14 @@ jobs:
           sed -i "s|__FW_VERSION__|${VERSION}|g; s|__BUILD_INFO__|${BUILD_INFO}|g" site/index.html
 
       - name: Upload firmware artifact (Download)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: esp32-morse-trainer-${{ steps.version.outputs.version }}
           path: dist/*
           if-no-files-found: error
 
       - name: Upload web flasher site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site/
 
@@ -126,7 +126,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   release:
     name: Publish Release
@@ -140,7 +140,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Download firmware artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: esp32-morse-trainer-${{ needs.build.outputs.version }}
           path: dist
