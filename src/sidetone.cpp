@@ -9,7 +9,7 @@
 // If Buzzer(-) is left on GND, it still operates normally at 3.3V.
 static const uint8_t PIN_BUZZER_A = 22;
 static const uint8_t PIN_BUZZER_B = 21;
-static uint16_t _freq = 800;
+static uint16_t _freq = 700;
 static uint16_t _duty = 2048; // 12-bit: 2048 = 50% square wave
 static uint8_t  _volumePercent = 100;
 static const uint8_t BUZZER_CHANNEL = 2; // Channel 2 -> Timer 1 (isolated from Backlight Channel 0 -> Timer 0)

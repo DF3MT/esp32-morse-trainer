@@ -64,7 +64,7 @@ private:
     bool          _squeezeOccurred  = false;
     bool          _lastWasDah       = false;
 
-    // Paddle debounce state (member variables for instance isolation, 5ms filter)
+    // Paddle debounce state (member variables for instance isolation, 10ms filter)
     unsigned long _ditLastChange    = 0;
     bool          _ditStable        = false;
     unsigned long _dahLastChange    = 0;

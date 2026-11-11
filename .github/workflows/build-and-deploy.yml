@@ -1,0 +1,137 @@
+name: Build Firmware & Deploy Web Flasher
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ESP32 Firmware
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Cache PlatformIO Core & Libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio
+          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
+      - name: Install PlatformIO & esptool
+        run: |
+          python -m pip install --upgrade pip
+          pip install platformio esptool
+
+      - name: Build Firmware with PlatformIO
+        run: |
+          pio run -e lilygo-t-display
+
+      - name: Prepare Binaries & Merge Flash Image
+        run: |
+          mkdir -p dist
+          # Copy core binaries
+          cp .pio/build/lilygo-t-display/firmware.bin dist/firmware.bin
+          cp .pio/build/lilygo-t-display/bootloader.bin dist/bootloader.bin
+          cp .pio/build/lilygo-t-display/partitions.bin dist/partitions.bin
+          
+          # Find or extract boot_app0.bin
+          if [ -f "docs/boot_app0.bin" ]; then
+            cp docs/boot_app0.bin dist/boot_app0.bin
+          else
+            BOOT_APP=$(find ~/.platformio -name "boot_app0.bin" | head -n 1)
+            cp "$BOOT_APP" dist/boot_app0.bin
+          fi
+
+          # Merge binaries into single flashable image for offset 0x0
+          python -m esptool --chip esp32 merge-bin \
+            -o dist/merged-firmware.bin \
+            --flash-mode dio \
+            --flash-freq 40m \
+            --flash-size 4MB \
+            0x1000 dist/bootloader.bin \
+            0x8000 dist/partitions.bin \
+            0xe000 dist/boot_app0.bin \
+            0x10000 dist/firmware.bin
+
+          # Update docs folder for GitHub Pages
+          cp dist/firmware.bin docs/firmware.bin
+          cp dist/bootloader.bin docs/bootloader.bin
+          cp dist/partitions.bin docs/partitions.bin
+          cp dist/boot_app0.bin docs/boot_app0.bin
+          cp dist/merged-firmware.bin docs/merged-firmware.bin
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-morse-trainer-binaries
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Upload to GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/merged-firmware.bin
+            dist/firmware.bin
+            dist/bootloader.bin
+            dist/partitions.bin
+            dist/boot_app0.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy Web Flasher to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Built Binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: esp32-morse-trainer-binaries
+          path: docs/
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -373,12 +373,12 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
     snprintf(viewItems[ITEM_TRAIN_SET].value, sizeof(viewItems[ITEM_TRAIN_SET].value), "%s", setName);
     viewItems[ITEM_TRAIN_SET].isAction = false;
 
-    // 9. Koch Level
+    // 13. Koch Level
     viewItems[ITEM_KOCH_LVL].label = "Koch-Stufe";
     snprintf(viewItems[ITEM_KOCH_LVL].value, sizeof(viewItems[ITEM_KOCH_LVL].value), "Stufe %d", _settings.kochLevel);
     viewItems[ITEM_KOCH_LVL].isAction = false;
 
-    // 10. Sleep Timeout
+    // 14. Sleep Timeout
     viewItems[ITEM_SLEEP_TIMEOUT].label = "Auto-Standby";
     if (_settings.sleepTimeoutMin == 0) {
         snprintf(viewItems[ITEM_SLEEP_TIMEOUT].value, sizeof(viewItems[ITEM_SLEEP_TIMEOUT].value), "Aus");
@@ -387,7 +387,7 @@ void MenuController::buildMenuItems(MenuItemView* viewItems) {
     }
     viewItems[ITEM_SLEEP_TIMEOUT].isAction = false;
 
-    // 11. Back / Exit
+    // 15. Back / Exit
     viewItems[ITEM_BACK].label = "< Zurueck";
     viewItems[ITEM_BACK].value[0] = '\0';
     viewItems[ITEM_BACK].isAction = true;

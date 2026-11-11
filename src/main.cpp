@@ -27,7 +27,7 @@ static void resetInactivityTimer() {
 }
 
 static void enterDeepSleep() {
-    Serial.println("[PWR] Entering Deep Sleep due to 2 minutes of inactivity...");
+    Serial.println("[PWR] Entering Deep Sleep due to inactivity...");
 
     // 1. Show sleep message on display
     display.showSleepScreen();

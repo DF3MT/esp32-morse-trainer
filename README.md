@@ -1,5 +1,7 @@
 # 📻 ESP32 Iambic Morse Code Trainer & Decoder
 
+[![Build & Deploy](https://github.com/DF3MT/esp32-morse-trainer/actions/workflows/build-and-deploy.yml/badge.svg)](https://github.com/DF3MT/esp32-morse-trainer/actions/workflows/build-and-deploy.yml)
+[![Web Flasher](https://img.shields.io/badge/Web%20Flasher-Flash%20in%20Browser-00e5ff?style=flat&logo=espressif)](https://df3mt.github.io/esp32-morse-trainer/)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Build%20Passed-brightgreen)](https://platformio.org/)
 [![ESP32](https://img.shields.io/badge/Hardware-LilyGO%20T--Display%20v1.1-blue)](https://www.lilygo.cc/)
 [![Speed](https://img.shields.io/badge/CW%20Speed-3--40%20WPM-orange)]()
@@ -7,6 +9,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A standalone, high-performance **CW Morse Code Trainer, Iambic Keyer, and Real-Time Decoder** built for the **LilyGO T-Display v1.1** (ESP32 with integrated 1.14" IPS color display).
+
+> ⚡ **Quick Install via Browser:** Flashe die Firmware direkt per Mausklick ohne Softwareinstallation: [**DF3MT Web Flasher**](https://df3mt.github.io/esp32-morse-trainer/) (Chrome/Edge/Opera mit Web Serial API).
 
 Designed for both amateur radio operators honing high-speed CW skills (up to 40 WPM) and beginners learning Morse code from scratch using the **Koch Method**.
 

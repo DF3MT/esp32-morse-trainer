@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DF3MT — ESP32 Morse Trainer Web Flasher & Installer</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%22100%22%20height=%22100%22><text y=%22.9em%22 font-size=%2290%22>📻</text></svg>">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --card-border: #1f293d;
+      --accent: #00e5ff;
+      --accent-glow: rgba(0, 229, 255, 0.25);
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.3);
+      --amber: #f59e0b;
+      --text-main: #f3f4f6;
+      --text-dim: #9ca3af;
+      --font-mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+    }
+    header {
+      background: #0d1322;
+      border-bottom: 1px solid var(--card-border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .callsign {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #ffffff 30%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(0, 229, 255, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      letter-spacing: 1px;
+    }
+    .header-links {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    a.btn-link {
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      background: #1f293d;
+      border: 1px solid #334155;
+      transition: all 0.2s ease;
+    }
+    a.btn-link:hover {
+      background: #2d3c54;
+      border-color: var(--accent);
+      color: #fff;
+    }
+    main {
+      flex: 1;
+      max-width: 1000px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .hero {
+      text-align: center;
+      padding: 24px 16px;
+    }
+    .hero h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      color: var(--text-dim);
+      font-size: 16px;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    .flasher-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 20px;
+      padding: 32px 20px;
+      background: radial-gradient(circle at 50% 0%, #161e31 0%, var(--card-bg) 70%);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 12px;
+    }
+    .flasher-box h2 {
+      font-size: 22px;
+      color: #fff;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      width: 100%;
+      margin: 16px 0;
+      text-align: left;
+    }
+    .step {
+      background: #0f1626;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .step-num {
+      display: inline-block;
+      width: 26px;
+      height: 26px;
+      background: rgba(0, 229, 255, 0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .step-title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    esp-web-install-button {
+      margin-top: 10px;
+      --esp-tools-button-border-radius: 8px;
+      --esp-tools-button-color: #000;
+      --esp-tools-button-bg-color: var(--accent);
+      --esp-tools-button-hover-bg-color: #33ecff;
+      --esp-tools-button-active-bg-color: #00b8cc;
+      --esp-tools-button-font-size: 16px;
+      --esp-tools-button-padding: 12px 28px;
+    }
+    .badge-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #1f293d;
+      border: 1px solid #334155;
+      color: var(--text-dim);
+    }
+    .badge.active {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: var(--green);
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .alert-box {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #fbbf24;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .downloads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .download-card {
+      background: #0f1626;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .download-title {
+      font-size: 13px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .download-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .btn-download {
+      display: inline-block;
+      text-align: center;
+      background: #1f293d;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-decoration: none;
+      border: 1px solid #334155;
+      transition: all 0.15s ease;
+    }
+    .btn-download:hover {
+      background: #2d3c54;
+      border-color: var(--accent);
+    }
+    .diagram-preview {
+      text-align: center;
+      margin-top: 16px;
+    }
+    .diagram-preview img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-dim);
+      background: #0d1322;
+      margin-top: auto;
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="callsign">DF3MT</span>
+      <span class="tag">WEB FLASHER</span>
+    </div>
+    <div class="header-links">
+      <a class="btn-link" href="https://df3mt.de" target="_blank">🌐 df3mt.de</a>
+      <a class="btn-link" href="https://github.com/DF3MT/esp32-morse-trainer" target="_blank">💻 GitHub Repository</a>
+      <a class="btn-link" href="CABLING_GUIDE.md" target="_blank">🔌 Verkabelungsanleitung</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <h1>ESP32 Morse Trainer (DF3MT)</h1>
+      <p>Flashe die neueste Firmware für das <strong>LilyGO TTGO T-Display v1.1</strong> direkt aus dem Browser auf deinen ESP32 — ohne Installation von Software, Compilern oder Treibern.</p>
+    </div>
+
+    <!-- Web Flasher Section -->
+    <div class="flasher-box">
+      <h2>🚀 Firmware direkt im Browser installieren</h2>
+      <p style="font-size: 14px; color: var(--text-dim); max-width: 500px;">
+        Verbinde dein LilyGO T-Display per USB-Kabel mit dem PC und klicke auf "INSTALL". Ein Chrome-, Edge- oder Opera-Browser wird benötigt (Web Serial API).
+      </p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-title">ESP32 verbinden</div>
+          <div class="step-desc">LilyGO Board mit USB-C-Datenkabel anstecken. Bei CH9102-Treiberproblemen ggf. WCH-Treiber installieren.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-title">Port wählen</div>
+          <div class="step-desc">Unten auf "INSTALL" klicken und im Browser-Pop-up den COM-Port (z. B. USB-Serial) auswählen.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-title">Loslegen!</div>
+          <div class="step-desc">Nach wenigen Sekunden startet das Gerät neu in das DF3MT Splash-Screen Menü. Fertig!</div>
+        </div>
+      </div>
+
+      <!-- ESP Web Tools Button -->
+      <esp-web-install-button manifest="manifest.json">
+        <button slot="activate">⚡ INSTALL FIRMWARE (v2.1.0)</button>
+        <span slot="unsupported">⚠️ Dein Browser unterstützt keine Web Serial API. Bitte verwende Google Chrome, Microsoft Edge oder Opera auf dem Desktop.</span>
+      </esp-web-install-button>
+
+      <div class="badge-bar">
+        <span class="badge active"><span class="badge-dot"></span> LilyGO T-Display v1.1 (ST7789)</span>
+        <span class="badge active"><span class="badge-dot"></span> Bluetooth BLE HID Keyboard</span>
+        <span class="badge active"><span class="badge-dot"></span> Wi-Fi SoftAP Live Terminal</span>
+        <span class="badge active"><span class="badge-dot"></span> Curtis Mode A & B</span>
+      </div>
+    </div>
+
+    <!-- Alert / Tips -->
+    <div class="alert-box">
+      <span style="font-size: 20px;">💡</span>
+      <div>
+        <strong>Tipp zum LilyGO T-Display v1.1 (WCH CH9102 USB Bridge):</strong><br>
+        Falls der COM-Port nicht erkannt wird, benötigst du den offiziellen <a href="http://www.wch-ic.com/downloads/CH343SER_EXE.html" target="_blank" style="color: #fbbf24; text-decoration: underline;">WCH CH343/CH9102 Treiber</a> für Windows. Achte zudem auf ein vollwertiges USB-Datenkabel (kein reines Ladekabel).
+      </div>
+    </div>
+
+    <!-- Manual Downloads -->
+    <div class="card">
+      <h2 style="font-size: 18px; margin-bottom: 8px;">📦 Manuelle Binaries & Offline-Flash</h2>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 14px;">
+        Für erfahrene Anwender, die mit <code>esptool.py</code> oder dem Espressif Flash Download Tool arbeiten:
+      </p>
+
+      <div class="downloads-grid">
+        <div class="download-card">
+          <div>
+            <div class="download-title">merged-firmware.bin</div>
+            <div class="download-desc">Komplett-Image für Offset <code>0x0000</code> (enthält Bootloader, Partitionen und App).</div>
+          </div>
+          <a class="btn-download" href="merged-firmware.bin" download>Herunterladen</a>
+        </div>
+
+        <div class="download-card">
+          <div>
+            <div class="download-title">firmware.bin</div>
+            <div class="download-desc">Anwendungs-Firmware für Offset <code>0x10000</code> (OTA / Einzelflash).</div>
+          </div>
+          <a class="btn-download" href="firmware.bin" download>Herunterladen</a>
+        </div>
+
+        <div class="download-card">
+          <div>
+            <div class="download-title">bootloader.bin</div>
+            <div class="download-desc">ESP32 2nd Stage Bootloader für Offset <code>0x1000</code>.</div>
+          </div>
+          <a class="btn-download" href="bootloader.bin" download>Herunterladen</a>
+        </div>
+
+        <div class="download-card">
+          <div>
+            <div class="download-title">partitions.bin</div>
+            <div class="download-desc">Partitions-Tabelle für Offset <code>0x8000</code>.</div>
+          </div>
+          <a class="btn-download" href="partitions.bin" download>Herunterladen</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wiring Diagram -->
+    <div class="card">
+      <h2 style="font-size: 18px; margin-bottom: 8px;">🔌 Hardware-Schaltplan & Verkabelung</h2>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+        Exakte Anschlussbelegung für Morse-Paddle (GPIO 32 / 33), Drehencoder (GPIO 25, 26, 27) und Piezo-Summer (GPIO 22 / 21 BTL):
+      </p>
+      <div class="diagram-preview">
+        <img src="wiring_diagram_exact.png" alt="Exakter Schaltplan LilyGO T-Display Morse Trainer">
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div>DF3MT ESP32 Morse Trainer &middot; Open Source Amateurfunk-Projekt</div>
+    <div><a href="https://df3mt.de" target="_blank">df3mt.de</a> &middot; <a href="https://github.com/DF3MT/esp32-morse-trainer" target="_blank">GitHub</a></div>
+  </footer>
+</body>
+</html>

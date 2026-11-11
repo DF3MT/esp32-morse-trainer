@@ -18,43 +18,40 @@ public:
 
 protected:
     virtual void onStarted(BLEServer *pServer) override {
-        // Override BleKeyboard's default MITM=true security setting.
-        // For standard HID Keyboards without numeric entry/display, MITM must be false
-        // so Windows/macOS/iOS/Android perform seamless "Just Works" pairing.
-        NimBLEDevice::setSecurityAuth(true, false, false); // bonding=true, mitm=false, sc=false
+        // SC_BOND: Bonding=true, MITM=false, SC=true (Secure Connections without MITM PIN requirement)
+        NimBLEDevice::setSecurityAuth(true, false, true);
         NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
         NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
         NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
-        Serial.println("[BLE] Security initialized: Just Works (Bonding=ON, MITM=OFF, IO=None)");
+        Serial.println("[BLE] Security initialized: Bonding=ON, MITM=OFF, SC=ON, IO=None");
     }
 
     virtual void onConnect(BLEServer* pServer, ble_gap_conn_desc* desc) override {
         BleKeyboard::onConnect(pServer);
         Serial.printf("[BLE] Host connected! Handle=%u, Interval=%u, Latency=%u, Timeout=%u\n",
                       desc->conn_handle, desc->conn_itvl, desc->conn_latency, desc->supervision_timeout);
-
-        // Update connection parameters to ensure coexistence with Wi-Fi SoftAP:
-        // minInterval = 24 (30ms), maxInterval = 40 (50ms)
-        // latency = 2 (allows skipping 2 connection events when Wi-Fi radio is busy)
-        // timeout = 400 (4000ms = 4.0s supervision timeout to prevent Wi-Fi beacon dropouts)
-        pServer->updateConnParams(desc->conn_handle, 24, 40, 2, 400);
     }
 
     virtual void onDisconnect(BLEServer* pServer, ble_gap_conn_desc* desc) override {
         BleKeyboard::onDisconnect(pServer);
-        Serial.printf("[BLE] Host disconnected (handle: %u).\n", desc->conn_handle);
-
-        // Ensure advertising is restarted so host can reconnect cleanly
-        NimBLEAdvertising* pAdv = pServer->getAdvertising();
-        if (pAdv && !pAdv->isAdvertising()) {
-            pAdv->start();
-            Serial.println("[BLE] Advertising restarted.");
-        }
+        Serial.printf("[BLE] Host disconnected! Handle=%u\n",
+                      desc ? desc->conn_handle : 0);
+        // NimBLE automatically restarts advertising (m_advertiseOnDisconnect = true)
     }
 
     virtual void onAuthenticationComplete(ble_gap_conn_desc* desc) override {
-        Serial.printf("[BLE] Authentication complete: paired=%d, bonded=%d, encrypted=%d\n",
-                      desc->sec_state.bonded, desc->sec_state.bonded, desc->sec_state.encrypted);
+        Serial.printf("[BLE] Auth complete: authenticated=%d, bonded=%d, encrypted=%d\n",
+                      desc->sec_state.authenticated, desc->sec_state.bonded, desc->sec_state.encrypted);
+    }
+
+    virtual uint32_t onPassKeyRequest() override {
+        Serial.println("[BLE] PassKey requested by host: returning 0");
+        return 0;
+    }
+
+    virtual bool onConfirmPIN(uint32_t pin) override {
+        Serial.printf("[BLE] ConfirmPIN requested: %u -> auto-accepted\n", pin);
+        return true;
     }
 };
 
@@ -68,8 +65,8 @@ void BleManager::begin(bool enabled, BleLayout layout) {
     _enabled = enabled;
     if (_enabled && !_started) {
         bleKeyboard.begin();
-        // Redundant enforcement of Just Works pairing parameters
-        NimBLEDevice::setSecurityAuth(true, false, false);
+        // Redundant enforcement of Secure Connections pairing parameters
+        NimBLEDevice::setSecurityAuth(true, false, true);
         NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
         NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
         NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
@@ -92,7 +89,7 @@ void BleManager::setEnabled(bool enabled) {
     _enabled = enabled;
     if (_enabled && !_started) {
         bleKeyboard.begin();
-        NimBLEDevice::setSecurityAuth(true, false, false);
+        NimBLEDevice::setSecurityAuth(true, false, true);
         NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
         NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
         NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
