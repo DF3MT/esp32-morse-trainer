@@ -340,9 +340,10 @@
 
       <!-- ESP Web Tools Button -->
       <esp-web-install-button manifest="manifest.json">
-        <button slot="activate">⚡ INSTALL FIRMWARE (v2.1.0)</button>
+        <button slot="activate">⚡ INSTALL FIRMWARE (v__FW_VERSION__)</button>
         <span slot="unsupported">⚠️ Dein Browser unterstützt keine Web Serial API. Bitte verwende Google Chrome, Microsoft Edge oder Opera auf dem Desktop.</span>
       </esp-web-install-button>
+      <p style="font-size: 12px; color: var(--text-dim); margin-top: 8px;">__BUILD_INFO__ · <a href="https://github.com/DF3MT/esp32-morse-trainer/releases" style="color: inherit;">Alle Builds &amp; Releases</a></p>
 
       <div class="badge-bar">
         <span class="badge active"><span class="badge-dot"></span> LilyGO T-Display v1.1 (ST7789)</span>

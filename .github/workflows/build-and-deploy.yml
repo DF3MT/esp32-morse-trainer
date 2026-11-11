@@ -1,44 +1,56 @@
 name: Build Firmware & Deploy Web Flasher
 
+# Baut bei JEDEM Commit (alle Branches) und bei Pull Requests.
+#  - Jeder Build:      Binaries als Actions-Artefakt zum Download
+#  - Push auf main:    Web-Flasher auf GitHub Pages + Release "latest" (feste Download-URL)
+#  - Tag v*:           Versioniertes GitHub Release mit allen Binaries
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+env:
+  PIO_ENV: lilygo-t-display
+  FW_BASE_VERSION: 2.1.0
 
 jobs:
   build:
     name: Build ESP32 Firmware
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Determine version
+        id: version
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${FW_BASE_VERSION}+${SHORT_SHA}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Firmware version: $VERSION"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          python-version: '3.11'
 
-      - name: Cache PlatformIO Core & Libraries
+      - name: Cache PlatformIO
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.platformio
-            .pio
-          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini') }}
           restore-keys: |
             ${{ runner.os }}-pio-
 
@@ -48,90 +60,111 @@ jobs:
           pip install platformio esptool
 
       - name: Build Firmware with PlatformIO
-        run: |
-          pio run -e lilygo-t-display
+        run: pio run -e "$PIO_ENV"
 
-      - name: Prepare Binaries & Merge Flash Image
+      - name: Prepare binaries & merged flash image
         run: |
+          BUILD=".pio/build/$PIO_ENV"
           mkdir -p dist
-          # Copy core binaries
-          cp .pio/build/lilygo-t-display/firmware.bin dist/firmware.bin
-          cp .pio/build/lilygo-t-display/bootloader.bin dist/bootloader.bin
-          cp .pio/build/lilygo-t-display/partitions.bin dist/partitions.bin
-          
-          # Find or extract boot_app0.bin
-          if [ -f "docs/boot_app0.bin" ]; then
-            cp docs/boot_app0.bin dist/boot_app0.bin
-          else
-            BOOT_APP=$(find ~/.platformio -name "boot_app0.bin" | head -n 1)
-            cp "$BOOT_APP" dist/boot_app0.bin
-          fi
+          cp "$BUILD/firmware.bin"   dist/firmware.bin
+          cp "$BUILD/bootloader.bin" dist/bootloader.bin
+          cp "$BUILD/partitions.bin" dist/partitions.bin
 
-          # Merge binaries into single flashable image for offset 0x0
+          BOOT_APP=$(find ~/.platformio/packages -name boot_app0.bin -path '*partitions*' | head -n 1)
+          test -n "$BOOT_APP" || { echo "boot_app0.bin not found"; exit 1; }
+          cp "$BOOT_APP" dist/boot_app0.bin
+
+          # Komplett-Image fuer Offset 0x0
           python -m esptool --chip esp32 merge-bin \
             -o dist/merged-firmware.bin \
-            --flash-mode dio \
-            --flash-freq 40m \
-            --flash-size 4MB \
-            0x1000 dist/bootloader.bin \
-            0x8000 dist/partitions.bin \
-            0xe000 dist/boot_app0.bin \
+            --flash-mode dio --flash-freq 40m --flash-size 4MB \
+            0x1000  dist/bootloader.bin \
+            0x8000  dist/partitions.bin \
+            0xe000  dist/boot_app0.bin \
             0x10000 dist/firmware.bin
 
-          # Update docs folder for GitHub Pages
-          cp dist/firmware.bin docs/firmware.bin
-          cp dist/bootloader.bin docs/bootloader.bin
-          cp dist/partitions.bin docs/partitions.bin
-          cp dist/boot_app0.bin docs/boot_app0.bin
-          cp dist/merged-firmware.bin docs/merged-firmware.bin
+          ls -l dist
 
-      - name: Upload Build Artifacts
+      - name: Prepare web flasher site
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p site
+          cp -r docs/. site/
+          cp dist/*.bin site/
+          BUILD_INFO="Build ${VERSION} · Commit ${GITHUB_SHA::7} · $(date -u '+%Y-%m-%d %H:%M UTC')"
+          # Versionsnummer in Manifest und Seite eintragen
+          jq --arg v "$VERSION" '.version = $v' docs/manifest.json > site/manifest.json
+          sed -i "s|__FW_VERSION__|${VERSION}|g; s|__BUILD_INFO__|${BUILD_INFO}|g" site/index.html
+
+      - name: Upload firmware artifact (Download)
         uses: actions/upload-artifact@v4
         with:
-          name: esp32-morse-trainer-binaries
+          name: esp32-morse-trainer-${{ steps.version.outputs.version }}
           path: dist/*
           if-no-files-found: error
 
-      - name: Upload to GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload web flasher site
+        uses: actions/upload-pages-artifact@v3
         with:
-          files: |
-            dist/merged-firmware.bin
-            dist/firmware.bin
-            dist/bootloader.bin
-            dist/partitions.bin
-            dist/boot_app0.bin
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: site/
 
-  deploy:
-    name: Deploy Web Flasher to GitHub Pages
+  deploy-pages:
+    name: Deploy Web Flasher (GitHub Pages)
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Download Built Binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: esp32-morse-trainer-binaries
-          path: docs/
-
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  release:
+    name: Publish Release
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: esp32-morse-trainer-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Rolling release "latest" (main)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          gh release delete latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create latest dist/*.bin \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Latest build ($VERSION)" \
+            --notes "Automatischer Build von main, Commit ${GITHUB_SHA}. Web-Flasher: https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/"
+
+      - name: Versioned release (tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.bin \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
