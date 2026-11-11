@@ -396,6 +396,11 @@ void setup() {
     // Menu (loads settings from NVS, applies to keyer, display brightness & hardware)
     menu.begin();
 
+    // Redraw splash in the configured UI language (display.begin() ran before settings were loaded)
+    if (wakeup_reason != ESP_SLEEP_WAKEUP_EXT0) {
+        display.showSplashScreen();
+    }
+
     // Wi-Fi Access Point & Real-time Web Terminal (starts if enabled in menu settings)
     WebManager::begin(menu.settings().wifiEnabled);
 

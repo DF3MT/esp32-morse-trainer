@@ -269,7 +269,7 @@ footer a:hover { text-decoration: underline; }
   <div class="status-bar">
     <div id="connStatus" class="live-pill">
       <span class="live-dot"></span>
-      <span id="connText">VERBUNDEN</span>
+      <span id="connText" data-i18n="connected">VERBUNDEN</span>
     </div>
     <div class="wpm-badge" id="wpmBadge">-- WPM &middot; -- BpM</div>
   </div>
@@ -277,36 +277,36 @@ footer a:hover { text-decoration: underline; }
 <main>
   <div class="stats-grid">
     <div class="stat-card">
-      <span class="stat-title">Zeichen</span>
+      <span class="stat-title" data-i18n="chars">Zeichen</span>
       <span class="stat-val" id="statChars">0</span>
     </div>
     <div class="stat-card">
-      <span class="stat-title">Wörter</span>
+      <span class="stat-title" data-i18n="words">Wörter</span>
       <span class="stat-val" id="statWords">0</span>
     </div>
     <div class="stat-card">
-      <span class="stat-title">Tempo</span>
+      <span class="stat-title" data-i18n="speed">Tempo</span>
       <span class="stat-val" id="statWpm">-- WPM &middot; -- BpM</span>
     </div>
     <div class="stat-card">
-      <span class="stat-title">Sitzungszeit</span>
+      <span class="stat-title" data-i18n="session">Sitzungszeit</span>
       <span class="stat-val" id="statTime">00:00</span>
     </div>
   </div>
   <div class="terminal-card">
     <div class="terminal-header">
-      <span>CW MITSCHRIFT &middot; ECHTZEIT-DECODER</span>
+      <span data-i18n="termTitle">CW MITSCHRIFT &middot; ECHTZEIT-DECODER</span>
       <div class="terminal-controls">
-        <button id="btnSound" title="Web Audio Mithörton ein/aus">🔊 Ton: Aus</button>
-        <button id="btnScroll" class="active" title="Automatisches Mitscrollen">📜 Auto-Scroll</button>
-        <button id="btnCopy" title="Text in Zwischenablage kopieren">📋 Kopieren</button>
-        <button id="btnDownload" title="Als TXT-Datei herunterladen">💾 Speichern</button>
-        <button id="btnClear" title="Protokoll leeren">🗑️ Leeren</button>
+        <button id="btnSound" data-i18n-title="soundTip">🔇 Ton: Aus</button>
+        <button id="btnScroll" class="active" data-i18n="scroll" data-i18n-title="scrollTip">📜 Auto-Scroll</button>
+        <button id="btnCopy" data-i18n="copy" data-i18n-title="copyTip">📋 Kopieren</button>
+        <button id="btnDownload" data-i18n="save" data-i18n-title="saveTip">💾 Speichern</button>
+        <button id="btnClear" data-i18n="clear" data-i18n-title="clearTip">🗑️ Leeren</button>
       </div>
     </div>
     <div class="terminal-body" id="termBody"><span id="textContent"></span><span class="cursor"></span></div>
     <div class="raw-ticker">
-      <span class="raw-label">Element-Stream:</span>
+      <span class="raw-label" data-i18n="elemStream">Element-Stream:</span>
       <span class="raw-stream" id="rawStream">...</span>
     </div>
   </div>
@@ -324,6 +324,46 @@ let audioCtx = null;
 let startTime = Date.now();
 let charCount = 0;
 let wordCount = 0;
+let lastWpm = 0;
+let connected = false;
+
+// ---- UI translations (keep keys in sync across languages) ----
+const I18N = {
+  de: {
+    connected: 'VERBUNDEN', disconnected: 'GETRENNT (verbinde neu...)',
+    chars: 'Zeichen', words: 'Wörter', speed: 'Tempo', session: 'Sitzungszeit',
+    termTitle: 'CW MITSCHRIFT · ECHTZEIT-DECODER',
+    soundOn: '🔊 Ton: Ein', soundOff: '🔇 Ton: Aus', soundTip: 'Web-Audio-Mithörton ein/aus',
+    scroll: '📜 Auto-Scroll', scrollTip: 'Automatisch mitscrollen',
+    copy: '📋 Kopieren', copied: '✅ Kopiert!', copyTip: 'Text in die Zwischenablage kopieren',
+    save: '💾 Speichern', saveTip: 'Als TXT-Datei herunterladen',
+    clear: '🗑️ Leeren', clearTip: 'Mitschrift leeren', clearConfirm: 'Möchtest du die gesamte Mitschrift leeren?',
+    elemStream: 'Element-Stream:', cpm: 'BpM'
+  },
+  en: {
+    connected: 'CONNECTED', disconnected: 'DISCONNECTED (reconnecting...)',
+    chars: 'Characters', words: 'Words', speed: 'Speed', session: 'Session time',
+    termTitle: 'CW TRANSCRIPT · REAL-TIME DECODER',
+    soundOn: '🔊 Sound: On', soundOff: '🔇 Sound: Off', soundTip: 'Toggle Web Audio sidetone',
+    scroll: '📜 Auto-scroll', scrollTip: 'Scroll automatically',
+    copy: '📋 Copy', copied: '✅ Copied!', copyTip: 'Copy text to clipboard',
+    save: '💾 Save', saveTip: 'Download as TXT file',
+    clear: '🗑️ Clear', clearTip: 'Clear transcript', clearConfirm: 'Do you want to clear the whole transcript?',
+    elemStream: 'Element stream:', cpm: 'CPM'
+  }
+};
+let lang = 'de';
+function t(key) { return (I18N[lang] && I18N[lang][key]) || I18N.de[key] || key; }
+
+function applyLanguage(code) {
+  lang = I18N[code] ? code : 'de';
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  connText.textContent = connected ? t('connected') : t('disconnected');
+  btnSound.textContent = soundEnabled ? t('soundOn') : t('soundOff');
+  if (lastWpm) updateSpeedDisplay(lastWpm);
+}
 
 const textContent = document.getElementById('textContent');
 const termBody = document.getElementById('termBody');
@@ -372,8 +412,9 @@ function updateStats() {
 
 function updateSpeedDisplay(wpm) {
   if (!wpm) return;
+  lastWpm = wpm;
   const bpm = wpm * 5;
-  const str = `${wpm} WPM · ${bpm} BpM`;
+  const str = `${wpm} WPM · ${bpm} ${t('cpm')}`;
   wpmBadge.textContent = str;
   statWpm.textContent = str;
 }
@@ -397,14 +438,16 @@ function connectWs() {
     connStatus.style.background = 'rgba(16, 185, 129, 0.12)';
     connStatus.style.borderColor = 'rgba(16, 185, 129, 0.4)';
     connStatus.style.color = '#10b981';
-    connText.textContent = 'VERBUNDEN';
+    connected = true;
+    connText.textContent = t('connected');
   };
 
   ws.onclose = () => {
     connStatus.style.background = 'rgba(239, 68, 68, 0.12)';
     connStatus.style.borderColor = 'rgba(239, 68, 68, 0.4)';
     connStatus.style.color = '#ef4444';
-    connText.textContent = 'GETRENNT (Reconnecting...)';
+    connected = false;
+    connText.textContent = t('disconnected');
     setTimeout(connectWs, 2000);
   };
 
@@ -435,7 +478,10 @@ function connectWs() {
         rawStream.textContent = cur + msg.val;
       } else if (msg.t === 'wpm') {
         updateSpeedDisplay(msg.val);
+      } else if (msg.t === 'lang') {
+        applyLanguage(msg.val);
       } else if (msg.t === 'init') {
+        if (msg.lang) applyLanguage(msg.lang);
         textBuffer = msg.history || '';
         renderText(textBuffer);
         charCount = textBuffer.replace(/<[^>]+>/g, '_').replace(/ /g, '').length;
@@ -453,7 +499,7 @@ function connectWs() {
 
 btnSound.onclick = () => {
   soundEnabled = !soundEnabled;
-  btnSound.textContent = soundEnabled ? '🔊 Ton: Ein' : '🔇 Ton: Aus';
+  btnSound.textContent = soundEnabled ? t('soundOn') : t('soundOff');
   btnSound.classList.toggle('active', soundEnabled);
   if (soundEnabled && !audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -467,8 +513,8 @@ btnScroll.onclick = () => {
 
 btnCopy.onclick = () => {
   navigator.clipboard.writeText(textBuffer).then(() => {
-    btnCopy.textContent = '✅ Kopiert!';
-    setTimeout(() => { btnCopy.textContent = '📋 Kopieren'; }, 1500);
+    btnCopy.textContent = t('copied');
+    setTimeout(() => { btnCopy.textContent = t('copy'); }, 1500);
   });
 };
 
@@ -481,7 +527,7 @@ btnDownload.onclick = () => {
 };
 
 btnClear.onclick = () => {
-  if (confirm('Möchtest du die gesamte Mitschrift leeren?')) {
+  if (confirm(t('clearConfirm'))) {
     textBuffer = '';
     charCount = 0;
     wordCount = 0;
@@ -494,6 +540,7 @@ btnClear.onclick = () => {
   }
 };
 
+applyLanguage('de');
 connectWs();
 </script>
 </body>

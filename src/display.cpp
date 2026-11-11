@@ -1,5 +1,6 @@
 #include "display.h"
 #include "config.h"
+#include "i18n.h"
 
 static const uint8_t BL_CHANNEL = 0;
 static const uint8_t BL_RESOLUTION = 8;
@@ -76,7 +77,7 @@ void DisplayManager::showSplashScreen() {
 
     // 5. User prompt: wait for paddle or button (Dim grey, Font 1)
     target.setTextColor(C_DIM, C_BG);
-    target.drawString("[ Taste oder Paddle druecken ]", 120, 114);
+    target.drawString(tr(Str::SPLASH_PROMPT), 120, 114);
 
     if (_useSprite) {
         _spr.pushSprite(0, 0);
@@ -117,7 +118,7 @@ void DisplayManager::showSleepScreen() {
     target.setTextColor(C_WARN, C_BAR);
     target.setTextFont(2);
     target.setCursor(4, 3);
-    target.print("STANDBY-MODUS");
+    target.print(tr(Str::SLEEP_TITLE_BAR));
 
     // Title
     target.setTextFont(4);
@@ -129,7 +130,7 @@ void DisplayManager::showSleepScreen() {
     target.setTextFont(2);
     target.setTextColor(C_ACCENT, C_BG);
     target.setCursor(12, 68);
-    target.print("Drehknopf druecken zum Aufwecken");
+    target.print(tr(Str::SLEEP_HINT));
 
     target.setTextColor(C_DIM, C_BG);
     target.setCursor(75, 98);
@@ -170,7 +171,7 @@ void DisplayManager::drawStatusBar(const char* label, int wpm, bool autoMode, bo
 
     // Centre-left: WPM & BpM (Buchstaben pro Minute = WPM * 5)
     char buf[20];
-    snprintf(buf, sizeof(buf), "%dW/%dB", wpm, wpm * 5);
+    snprintf(buf, sizeof(buf), tr(Str::STATUS_SPEED_FMT), wpm, wpm * 5);
     target.setTextColor(C_FG, C_BAR);
     target.setCursor(48, 3);
     target.print(buf);
@@ -251,7 +252,7 @@ void DisplayManager::showDecodeScreen(const char* text, int wpm, bool autoMode, 
     target.setTextFont(1);
     target.setTextColor(C_ACCENT, 0x18C3);
     target.setCursor(4, 122);
-    target.print("DREHEN: WPM/BpM  |  KLICK: MENUE");
+    target.print(tr(Str::DECODE_HINT));
 
     // Decoded text: exactly 3 full lines in Font 4 (y = 24, 54, 84)
     target.setTextFont(4);
@@ -428,7 +429,7 @@ void DisplayManager::showTrainingScreen(const TrainingChallenge& ch, bool keyDow
     target.setTextFont(2);
     target.setTextColor(C_ACCENT, C_BG);
     target.setCursor(4, 24);
-    target.print("Gib:");
+    target.print(tr(Str::TRAIN_SEND));
 
     // Target text: adjust position and font size
     target.setTextFont(4);
@@ -468,10 +469,10 @@ void DisplayManager::showTrainingScreen(const TrainingChallenge& ch, bool keyDow
         uint16_t col = ch.correct ? C_OK : C_ERR;
         target.setTextColor(col, C_BG);
         target.setCursor(4, 88);
-        target.print(ch.correct ? "RICHTIG!" : "FALSCH ");
+        target.print(ch.correct ? tr(Str::TRAIN_CORRECT) : tr(Str::TRAIN_WRONG));
         target.setTextFont(2);
         target.setTextColor(0xA514, C_BG);
-        target.print("  (gesendet: ");
+        target.print(tr(Str::TRAIN_SENT_PREFIX));
         target.setTextColor(C_WARN, C_BG);
         target.print(ch.sent);
         target.setTextColor(0xA514, C_BG);
@@ -480,7 +481,7 @@ void DisplayManager::showTrainingScreen(const TrainingChallenge& ch, bool keyDow
         target.setTextFont(1);
         target.setTextColor(C_DIM, C_BG);
         target.setCursor(4, 98);
-        target.print("KLICK: Menue | DREHEN: Tempo anpassen");
+        target.print(tr(Str::TRAIN_HINT));
     }
 
     if (_useSprite) {
@@ -506,7 +507,7 @@ void DisplayManager::showMenuScreen(const MenuItemView* items, uint8_t count, ui
     target.setTextFont(2);
     target.setTextColor(C_ACCENT, C_BAR);
     target.setCursor(4, 3);
-    target.print("EINSTELLUNGEN");
+    target.print(tr(Str::MENU_TITLE));
 
     if (isEditing) {
         target.setTextColor(C_WARN, C_BAR);
@@ -589,10 +590,10 @@ void DisplayManager::showMenuScreen(const MenuItemView* items, uint8_t count, ui
     target.setCursor(4, 121);
     if (isEditing) {
         target.setTextColor(C_WARN, 0x18C3);
-        target.print("DREHEN: Wert anpassen  |  KLICK: Speichern");
+        target.print(tr(Str::MENU_HINT_EDIT));
     } else {
         target.setTextColor(C_DIM, 0x18C3);
-        target.print("DREHEN: Menue  |  KLICK: Waehlen/Aendern");
+        target.print(tr(Str::MENU_HINT_BROWSE));
     }
 
     if (_useSprite) {
@@ -617,7 +618,7 @@ void DisplayManager::showScoreScreen(int correct, int total, int avgWpm) {
     target.setTextFont(2);
     target.setTextColor(C_ACCENT, C_BAR);
     target.setCursor(4, 3);
-    target.print("ERGEBNIS");
+    target.print(tr(Str::SCORE_TITLE));
 
     int pct = total > 0 ? (correct * 100 / total) : 0;
     uint16_t col = pct >= 80 ? C_OK : (pct >= 50 ? C_WARN : C_ERR);
@@ -631,11 +632,11 @@ void DisplayManager::showScoreScreen(int correct, int total, int avgWpm) {
 
     target.setTextFont(2);
     target.setTextColor(C_FG, C_BG);
-    snprintf(buf, sizeof(buf), "%d / %d richtig", correct, total);
+    snprintf(buf, sizeof(buf), tr(Str::SCORE_CORRECT_FMT), correct, total);
     target.setCursor(4, 100);
     target.print(buf);
 
-    snprintf(buf, sizeof(buf), "Durchschnitt: %d WPM (%d BpM)", avgWpm, avgWpm * 5);
+    snprintf(buf, sizeof(buf), tr(Str::SCORE_AVG_FMT), avgWpm, avgWpm * 5);
     target.setTextColor(C_DIM, C_BG);
     target.setCursor(4, 118);
     target.print(buf);

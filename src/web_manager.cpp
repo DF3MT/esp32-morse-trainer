@@ -32,6 +32,7 @@ static String           _ssid = "DF3MT-MorseTrainer";
 static String           _password = "";
 static int              _currentWpm = 20;
 static String           _history = "";
+static String           _lang = "de";
 static const size_t     MAX_HISTORY_LEN = 2048;
 
 // JSON escaping helper
@@ -50,6 +51,11 @@ static String escapeJson(const String& in) {
     return out;
 }
 
+// Initial state message (speed, UI language, transcript)
+static String buildInitMsg(const String& history) {
+    return "{\"t\":\"init\",\"wpm\":" + String(_currentWpm) + ",\"lang\":\"" + _lang + "\",\"history\":\"" + escapeJson(history) + "\"}";
+}
+
 // WebSocket Event Handler
 static void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
     switch (type) {
@@ -57,7 +63,7 @@ static void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_
             IPAddress ip = _ws.remoteIP(num);
             Serial.printf("[WEB] Client #%u connected from %d.%d.%d.%d\n", num, ip[0], ip[1], ip[2], ip[3]);
             // Send initial state & full history to newly connected browser client
-            String initMsg = "{\"t\":\"init\",\"wpm\":" + String(_currentWpm) + ",\"history\":\"" + escapeJson(_history) + "\"}";
+            String initMsg = buildInitMsg(_history);
             _ws.sendTXT(num, initMsg);
             break;
         }
@@ -71,7 +77,7 @@ static void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_
             if (text.indexOf("\"clear\"") >= 0) {
                 Serial.println("[WEB] Clear requested by client");
                 _history = "";
-                _ws.broadcastTXT("{\"t\":\"init\",\"wpm\":" + String(_currentWpm) + ",\"history\":\"\"}");
+                { String msg = buildInitMsg(""); _ws.broadcastTXT(msg); }
             }
             break;
         }
@@ -117,8 +123,8 @@ static void startApAndServers() {
 
     _server.on("/api/status", HTTP_GET, []() {
         char buf[128];
-        snprintf(buf, sizeof(buf), "{\"clients\":%d,\"stations\":%d,\"wpm\":%d}",
-                 _ws.connectedClients(), WiFi.softAPgetStationNum(), _currentWpm);
+        snprintf(buf, sizeof(buf), "{\"clients\":%d,\"stations\":%d,\"wpm\":%d,\"lang\":\"%s\"}",
+                 _ws.connectedClients(), WiFi.softAPgetStationNum(), _currentWpm, _lang.c_str());
         _server.send(200, "application/json", buf);
     });
 
@@ -272,10 +278,19 @@ void WebManager::pushWpm(int wpm) {
     xQueueSend(_evtQueue, &ev, 0);
 }
 
+void WebManager::setLanguage(const char* code) {
+    if (!code || !code[0] || _lang == code) return;
+    _lang = code;
+    if (_begun && _serversRunning) {
+        String msg = "{\"t\":\"lang\",\"val\":\"" + _lang + "\"}";
+        _ws.broadcastTXT(msg);
+    }
+}
+
 void WebManager::clearHistory() {
     _history = "";
     if (_begun) {
-        _ws.broadcastTXT("{\"t\":\"init\",\"wpm\":" + String(_currentWpm) + ",\"history\":\"\"}");
+        { String msg = buildInitMsg(""); _ws.broadcastTXT(msg); }
     }
 }
 

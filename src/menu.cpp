@@ -148,6 +148,12 @@ void MenuController::handleMenuNavigation() {
                 return;
 
             // Items that switch to interactive edit mode:
+            case ITEM_LANGUAGE:
+                _isEditing = true;
+                _encoder.setBoundaries(0, LANGUAGE_COUNT - 1, false);
+                _encoder.setEncoderValue((long)_settings.language);
+                break;
+
             case ITEM_MODE:
                 _isEditing = true;
                 _encoder.setBoundaries(0, 1, false);
@@ -217,6 +223,12 @@ void MenuController::handleMenuEditing() {
         long val = _encoder.readEncoder();
 
         switch (_menuIndex) {
+            case ITEM_LANGUAGE:
+                // Live preview: the menu re-renders in the selected language right away
+                _settings.language = (Language)constrain(val, 0L, (long)(LANGUAGE_COUNT - 1));
+                I18n::setLanguage(_settings.language);
+                break;
+
             case ITEM_MODE:
                 _settings.appScreen = (val == 0) ? AppScreen::DECODE : AppScreen::TRAINING;
                 break;
@@ -285,110 +297,112 @@ void MenuController::handleMenuEditing() {
 // Format items and current values for the display
 // ============================================================
 void MenuController::buildMenuItems(MenuItemView* viewItems) {
-    // 0. Mode
-    viewItems[ITEM_MODE].label = "Betriebsart";
-    snprintf(viewItems[ITEM_MODE].value, sizeof(viewItems[ITEM_MODE].value),
-             "%s", (_settings.appScreen == AppScreen::DECODE) ? "Decodieren" : "Training");
+    auto setValue = [&](int idx, const char* text) {
+        snprintf(viewItems[idx].value, sizeof(viewItems[idx].value), "%s", text);
+    };
+
+    // 0. Language
+    viewItems[ITEM_LANGUAGE].label = tr(Str::M_LANGUAGE);
+    setValue(ITEM_LANGUAGE, I18n::languageName(_settings.language));
+    viewItems[ITEM_LANGUAGE].isAction = false;
+
+    // 1. Mode
+    viewItems[ITEM_MODE].label = tr(Str::M_MODE);
+    setValue(ITEM_MODE, (_settings.appScreen == AppScreen::DECODE) ? tr(Str::V_DECODE) : tr(Str::V_TRAINING));
     viewItems[ITEM_MODE].isAction = false;
 
-    // 1. WPM / BpM
-    viewItems[ITEM_WPM].label = "Tempo";
-    snprintf(viewItems[ITEM_WPM].value, sizeof(viewItems[ITEM_WPM].value), "%d WPM / %d BpM", _settings.wpm, _settings.wpm * 5);
+    // 2. WPM / BpM (CPM)
+    viewItems[ITEM_WPM].label = tr(Str::M_SPEED);
+    snprintf(viewItems[ITEM_WPM].value, sizeof(viewItems[ITEM_WPM].value), tr(Str::V_SPEED_FMT), _settings.wpm, _settings.wpm * 5);
     viewItems[ITEM_WPM].isAction = false;
 
-    // 2. Auto-speed
-    viewItems[ITEM_AUTOSPEED].label = "Auto-Tempo";
-    snprintf(viewItems[ITEM_AUTOSPEED].value, sizeof(viewItems[ITEM_AUTOSPEED].value),
-             "%s", _settings.autoSpeed ? "AN" : "AUS");
+    // 3. Auto-speed
+    viewItems[ITEM_AUTOSPEED].label = tr(Str::M_AUTOSPEED);
+    setValue(ITEM_AUTOSPEED, _settings.autoSpeed ? tr(Str::V_ON) : tr(Str::V_OFF));
     viewItems[ITEM_AUTOSPEED].isAction = true;
 
-    // 3. Keyer Mode
-    viewItems[ITEM_KEYER_MODE].label = "Keyer-Modus";
-    snprintf(viewItems[ITEM_KEYER_MODE].value, sizeof(viewItems[ITEM_KEYER_MODE].value),
-             "%s", (_settings.keyerMode == IambicMode::MODE_A) ? "Modus A" : "Modus B");
+    // 4. Keyer Mode
+    viewItems[ITEM_KEYER_MODE].label = tr(Str::M_KEYER_MODE);
+    setValue(ITEM_KEYER_MODE, (_settings.keyerMode == IambicMode::MODE_A) ? tr(Str::V_MODE_A) : tr(Str::V_MODE_B));
     viewItems[ITEM_KEYER_MODE].isAction = true;
 
-    // 4. Paddle Swap
-    viewItems[ITEM_PADDLE_SWAP].label = "Paddle-Tausch";
-    snprintf(viewItems[ITEM_PADDLE_SWAP].value, sizeof(viewItems[ITEM_PADDLE_SWAP].value),
-             "%s", _settings.paddleSwap ? "Getauscht" : "Normal");
+    // 5. Paddle Swap
+    viewItems[ITEM_PADDLE_SWAP].label = tr(Str::M_PADDLE_SWAP);
+    setValue(ITEM_PADDLE_SWAP, _settings.paddleSwap ? tr(Str::V_SWAPPED) : tr(Str::V_NORMAL));
     viewItems[ITEM_PADDLE_SWAP].isAction = true;
 
-    // 5. Tone
-    viewItems[ITEM_TONE].label = "Tonhoehe";
+    // 6. Tone
+    viewItems[ITEM_TONE].label = tr(Str::M_TONE);
     snprintf(viewItems[ITEM_TONE].value, sizeof(viewItems[ITEM_TONE].value), "%d Hz", _settings.sidetoneHz);
     viewItems[ITEM_TONE].isAction = false;
 
-    // 6. Volume
-    viewItems[ITEM_VOLUME].label = "Lautstaerke";
+    // 7. Volume
+    viewItems[ITEM_VOLUME].label = tr(Str::M_VOLUME);
     snprintf(viewItems[ITEM_VOLUME].value, sizeof(viewItems[ITEM_VOLUME].value), "%d %%", _settings.sidetoneVol);
     viewItems[ITEM_VOLUME].isAction = false;
 
-    // 7. Brightness
-    viewItems[ITEM_BRIGHTNESS].label = "Helligkeit";
+    // 8. Brightness
+    viewItems[ITEM_BRIGHTNESS].label = tr(Str::M_BRIGHTNESS);
     snprintf(viewItems[ITEM_BRIGHTNESS].value, sizeof(viewItems[ITEM_BRIGHTNESS].value), "%d %%", _settings.brightness);
     viewItems[ITEM_BRIGHTNESS].isAction = false;
 
-    // 8. BLE Keyboard
-    viewItems[ITEM_BLE_KEYBOARD].label = "BLE-Tastatur";
+    // 9. BLE Keyboard
+    viewItems[ITEM_BLE_KEYBOARD].label = tr(Str::M_BLE_KEYBOARD);
     if (!_settings.bleKeyboard) {
-        snprintf(viewItems[ITEM_BLE_KEYBOARD].value, sizeof(viewItems[ITEM_BLE_KEYBOARD].value), "Aus");
+        setValue(ITEM_BLE_KEYBOARD, tr(Str::V_BLE_OFF));
     } else if (BleManager::isConnected()) {
-        snprintf(viewItems[ITEM_BLE_KEYBOARD].value, sizeof(viewItems[ITEM_BLE_KEYBOARD].value), "Verbunden");
+        setValue(ITEM_BLE_KEYBOARD, tr(Str::V_BLE_CONNECTED));
     } else {
-        snprintf(viewItems[ITEM_BLE_KEYBOARD].value, sizeof(viewItems[ITEM_BLE_KEYBOARD].value), "Wartet...");
+        setValue(ITEM_BLE_KEYBOARD, tr(Str::V_BLE_WAITING));
     }
     viewItems[ITEM_BLE_KEYBOARD].isAction = true;
 
-    // 9. BLE Layout
-    viewItems[ITEM_BLE_LAYOUT].label = "BLE-Layout";
-    snprintf(viewItems[ITEM_BLE_LAYOUT].value, sizeof(viewItems[ITEM_BLE_LAYOUT].value),
-             "%s", (_settings.bleLayout == BleLayout::GERMAN_DE) ? "DE (QWERTZ)" : "US (QWERTY)");
+    // 10. BLE Layout
+    viewItems[ITEM_BLE_LAYOUT].label = tr(Str::M_BLE_LAYOUT);
+    setValue(ITEM_BLE_LAYOUT, (_settings.bleLayout == BleLayout::GERMAN_DE) ? "DE (QWERTZ)" : "US (QWERTY)");
     viewItems[ITEM_BLE_LAYOUT].isAction = true;
 
-    // 10. BLE Clear Bonds
-    viewItems[ITEM_BLE_CLEAR_BONDS].label = "BT Paarung";
-    snprintf(viewItems[ITEM_BLE_CLEAR_BONDS].value, sizeof(viewItems[ITEM_BLE_CLEAR_BONDS].value),
-             "%s", _bondsResetFeedback ? "Geloescht!" : "Klick=Reset");
+    // 11. BLE Clear Bonds
+    viewItems[ITEM_BLE_CLEAR_BONDS].label = tr(Str::M_BLE_BONDS);
+    setValue(ITEM_BLE_CLEAR_BONDS, _bondsResetFeedback ? tr(Str::V_BONDS_CLEARED) : tr(Str::V_BONDS_RESET));
     viewItems[ITEM_BLE_CLEAR_BONDS].isAction = true;
 
-    // 11. Wi-Fi SoftAP
-    viewItems[ITEM_WIFI].label = "WLAN SoftAP";
-    snprintf(viewItems[ITEM_WIFI].value, sizeof(viewItems[ITEM_WIFI].value),
-             "%s", _settings.wifiEnabled ? "AN" : "AUS");
+    // 12. Wi-Fi SoftAP
+    viewItems[ITEM_WIFI].label = tr(Str::M_WIFI);
+    setValue(ITEM_WIFI, _settings.wifiEnabled ? tr(Str::V_ON) : tr(Str::V_OFF));
     viewItems[ITEM_WIFI].isAction = true;
 
-    // 12. Training Set
-    viewItems[ITEM_TRAIN_SET].label = "Uebungssatz";
+    // 13. Training Set
+    viewItems[ITEM_TRAIN_SET].label = tr(Str::M_TRAIN_SET);
     const char* setName = "Koch";
     switch (_settings.trainingSet) {
         case TrainingSet::KOCH:      setName = "Koch"; break;
         case TrainingSet::LETTERS:   setName = "A-Z"; break;
         case TrainingSet::NUMBERS:   setName = "0-9"; break;
-        case TrainingSet::ALL_CHARS: setName = "Alle"; break;
+        case TrainingSet::ALL_CHARS: setName = tr(Str::V_SET_ALL); break;
         case TrainingSet::Q_CODES:   setName = "Q-Codes"; break;
-        case TrainingSet::QSO_ABBR:  setName = "QSO-Abk."; break;
-        case TrainingSet::PROSIGNS:  setName = "Spruchz."; break;
+        case TrainingSet::QSO_ABBR:  setName = tr(Str::V_SET_QSO); break;
+        case TrainingSet::PROSIGNS:  setName = tr(Str::V_SET_PROSIGNS); break;
     }
-    snprintf(viewItems[ITEM_TRAIN_SET].value, sizeof(viewItems[ITEM_TRAIN_SET].value), "%s", setName);
+    setValue(ITEM_TRAIN_SET, setName);
     viewItems[ITEM_TRAIN_SET].isAction = false;
 
-    // 13. Koch Level
-    viewItems[ITEM_KOCH_LVL].label = "Koch-Stufe";
-    snprintf(viewItems[ITEM_KOCH_LVL].value, sizeof(viewItems[ITEM_KOCH_LVL].value), "Stufe %d", _settings.kochLevel);
+    // 14. Koch Level
+    viewItems[ITEM_KOCH_LVL].label = tr(Str::M_KOCH_LEVEL);
+    snprintf(viewItems[ITEM_KOCH_LVL].value, sizeof(viewItems[ITEM_KOCH_LVL].value), tr(Str::V_LEVEL_FMT), _settings.kochLevel);
     viewItems[ITEM_KOCH_LVL].isAction = false;
 
-    // 14. Sleep Timeout
-    viewItems[ITEM_SLEEP_TIMEOUT].label = "Auto-Standby";
+    // 15. Sleep Timeout
+    viewItems[ITEM_SLEEP_TIMEOUT].label = tr(Str::M_SLEEP);
     if (_settings.sleepTimeoutMin == 0) {
-        snprintf(viewItems[ITEM_SLEEP_TIMEOUT].value, sizeof(viewItems[ITEM_SLEEP_TIMEOUT].value), "Aus");
+        setValue(ITEM_SLEEP_TIMEOUT, tr(Str::V_SLEEP_OFF));
     } else {
-        snprintf(viewItems[ITEM_SLEEP_TIMEOUT].value, sizeof(viewItems[ITEM_SLEEP_TIMEOUT].value), "%d Min", _settings.sleepTimeoutMin);
+        snprintf(viewItems[ITEM_SLEEP_TIMEOUT].value, sizeof(viewItems[ITEM_SLEEP_TIMEOUT].value), tr(Str::V_MINUTES_FMT), _settings.sleepTimeoutMin);
     }
     viewItems[ITEM_SLEEP_TIMEOUT].isAction = false;
 
-    // 15. Back / Exit
-    viewItems[ITEM_BACK].label = "< Zurueck";
+    // 16. Back / Exit
+    viewItems[ITEM_BACK].label = tr(Str::M_BACK);
     viewItems[ITEM_BACK].value[0] = '\0';
     viewItems[ITEM_BACK].isAction = true;
 }
@@ -417,6 +431,9 @@ bool MenuController::checkButtonClicked() {
 // Apply settings to hardware & Keyer
 // ============================================================
 void MenuController::applySettings(bool playFeedback) {
+    I18n::setLanguage(_settings.language);
+    WebManager::setLanguage(I18n::languageCode(_settings.language));
+
     _keyer.setMode(_settings.keyerMode);
     _keyer.setAutoSpeed(_settings.autoSpeed);
     _keyer.setPaddleSwap(_settings.paddleSwap);
@@ -447,6 +464,7 @@ void MenuController::applySettings(bool playFeedback) {
 void MenuController::saveSettings() {
     Preferences prefs;
     if (prefs.begin("morse", false)) {
+        prefs.putUChar("lang", (uint8_t)_settings.language);
         prefs.putInt("screen", (int)_settings.appScreen);
         prefs.putInt("wpm",    _settings.wpm);
         prefs.putBool("auto",  _settings.autoSpeed);
@@ -468,6 +486,8 @@ void MenuController::saveSettings() {
 void MenuController::loadSettings() {
     Preferences prefs;
     if (prefs.begin("morse", true)) {
+        uint8_t lang          = prefs.getUChar("lang", (uint8_t)Language::DE);
+        _settings.language    = (lang < LANGUAGE_COUNT) ? (Language)lang : Language::DE;
         _settings.appScreen   = (AppScreen)prefs.getInt("screen", (int)AppScreen::DECODE);
         _settings.wpm         = prefs.getInt("wpm",      WPM_DEFAULT);
         _settings.autoSpeed   = prefs.getBool("auto",    false);

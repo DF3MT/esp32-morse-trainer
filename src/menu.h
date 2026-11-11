@@ -5,6 +5,7 @@
 #include "keyer.h"
 #include "display.h"
 #include "ble_manager.h"
+#include "i18n.h"
 
 // ============================================================
 // MenuController — Voll konfigurierbar über Rotary Encoder
@@ -26,6 +27,7 @@ enum class TrainingSet {
 };
 
 struct Settings {
+    Language    language     = Language::DE;       // UI-Sprache / UI language
     AppScreen   appScreen    = AppScreen::DECODE;
     int         wpm          = WPM_DEFAULT;        // 3 .. 40 WPM
     bool        autoSpeed    = false;              // Standard: AUS (Manuelles Tempo per Drehencoder)
@@ -69,7 +71,8 @@ private:
     int8_t    _menuIndex  = 0;
 
     enum MenuItemId {
-        ITEM_MODE = 0,
+        ITEM_LANGUAGE = 0,
+        ITEM_MODE,
         ITEM_WPM,
         ITEM_AUTOSPEED,
         ITEM_KEYER_MODE,

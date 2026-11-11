@@ -1,93 +1,96 @@
-# 🔌 Exakte Hardware-Verkabelungsanleitung: ESP32 Morse Code Trainer
+# 🔌 Wiring Guide: ESP32 Morse Trainer
 
-> **Wichtiger Hinweis zum Anschlussplan:**
-> Dieses Dokument enthält die verbindliche 1:1 Anschlussbelegung für das **LilyGO T-Display v1.1** (ESP32-D0WDQ6-V3 mit integriertem ST7789 1.14" IPS-Farbdisplay), einen **KY-040 Drehencoder mit Taster**, ein **Iambic Morse Paddle (3,5mm Stereo-Klinke)** und den **Audio-Ausgang (Piezo / Mini-Lautsprecher)**.
+**🇬🇧 English** · [🇩🇪 Deutsch](CABLING_GUIDE.de.md) · [⬅ Back to README](../README.md) · [🛒 Shopping list](SHOPPING_LIST.md)
 
----
-
-## 1. Verbindliche Systemverkabelung (1:1 Schaltplan)
-
-![Exakte Verkabelung](wiring_diagram_exact.png)
+> **About this wiring plan:**
+> This document is the authoritative pin-by-pin wiring for the **LilyGO T-Display v1.1** (ESP32-D0WDQ6-V3 with a built-in 1.14" ST7789 IPS colour display), a **KY-040 rotary encoder with push button**, an **iambic Morse paddle (3.5 mm stereo jack)** and the **audio output (piezo / small speaker)**.
 
 ---
 
-## 2. Lückenlose 1:1 Anschlusstabelle
+## 1. System wiring (schematic)
 
-Jede Leitung geht an **genau einen einzigen Pin** am ESP32:
+![Exact wiring](wiring_diagram_exact.png)
 
-| Bauteil | Signal am Bauteil | Funktion | ESP32 Pin | Kabelfarbe im Plan | Wichtige Hinweise |
+---
+
+## 2. Complete connection table
+
+Each wire goes to **exactly one pin** on the ESP32:
+
+| Part | Signal on part | Function | ESP32 pin | Wire colour in diagram | Important notes |
 |---|---|---|---|---|---|
-| **Rotary Encoder** | **DT** | Phase B (Richtung) | **GPIO 25** | 🔵 Blau | **NUR an GPIO 25!** Keine Verzweigung. |
-| **Rotary Encoder** | **CLK** | Phase A (Takt) | **GPIO 26** | 🟠 Orange | **NUR an GPIO 26!** Interrupt-Eingang. |
-| **Rotary Encoder** | **SW** | Taster (Menü) | **GPIO 27** | 🟣 Lila | **NUR an GPIO 27!** (Kommt nur 1× auf dem Board vor). |
-| **Rotary Encoder** | **+ / VCC** | Betriebsspannung | **3V3** | 🔴 Rot | **3.3V ONLY!** NIEMALS an 5V anschließen! |
-| **Rotary Encoder** | **GND** | Masse | **GND** | ⚪ Grau | Gemeinsame Masse. |
-| **Morse Paddle** | **Tip (Spitze)** | DIT (Punkt / Links) | **GPIO 32** | 🟢 Grün | 3.5mm Stereo Klinke (aktiver LOW Pullup). |
-| **Morse Paddle** | **Ring** | DAH (Strich / Rechts)| **GPIO 33** | 🟡 Gelb | 3.5mm Stereo Klinke (aktiver LOW Pullup). |
-| **Morse Paddle** | **Sleeve (Schaft)**| Gemeinsame Masse | **GND** | ⚪ Grau | Gemeinsame Masse. |
-| **Piezo Buzzer** | **(+) Plus** | Sidetone Signal A | **GPIO 22** | 🟪 Helllila | PWM Sidetone (LEDC Kanal 2, Timer 1). |
-| **Piezo Buzzer** | **(-) Minus (Option 1: Standard)** | Masse | **GND** | ⚪ Grau | 3,3V Peak-to-Peak (Standardlautstärke). |
-| **Piezo Buzzer** | **(-) Minus (Option 2: 4× Power Boost)** | Sidetone Signal B (Invertiert) | **GPIO 21** | 🟪 Lila | **6,6V BTL Push-Pull!** 4× akustische Leistung (+6 dB) ohne Zusatzteile! |
+| **Rotary encoder** | **DT** | Phase B (direction) | **GPIO 25** | 🔵 Blue | **GPIO 25 only!** No branching. |
+| **Rotary encoder** | **CLK** | Phase A (clock) | **GPIO 26** | 🟠 Orange | **GPIO 26 only!** Interrupt input. |
+| **Rotary encoder** | **SW** | Push button (menu) | **GPIO 27** | 🟣 Purple | **GPIO 27 only!** Also wakes the device from deep sleep. |
+| **Rotary encoder** | **+ / VCC** | Supply voltage | **3V3** | 🔴 Red | **3.3 V ONLY!** Never connect to 5 V! |
+| **Rotary encoder** | **GND** | Ground | **GND** | ⚪ Grey | Common ground. |
+| **Morse paddle** | **Tip** | DIT (dot / left) | **GPIO 32** | 🟢 Green | 3.5 mm stereo jack (pull-up, active LOW). |
+| **Morse paddle** | **Ring** | DAH (dash / right) | **GPIO 33** | 🟡 Yellow | 3.5 mm stereo jack (pull-up, active LOW). |
+| **Morse paddle** | **Sleeve** | Common ground | **GND** | ⚪ Grey | Common ground. |
+| **Piezo buzzer** | **(+) Plus** | Sidetone signal A | **GPIO 22** | 🟪 Light purple | PWM sidetone (LEDC channel 2, timer 1). |
+| **Piezo buzzer** | **(−) Minus (option 1: standard)** | Ground | **GND** | ⚪ Grey | 3.3 V peak-to-peak (normal volume). |
+| **Piezo buzzer** | **(−) Minus (option 2: 4× power boost)** | Sidetone signal B (inverted) | **GPIO 21** | 🟪 Purple | **6.6 V BTL push-pull!** 4× acoustic power (+6 dB) with no extra parts. |
 
-### Paddle 3,5 mm Klinkenstecker (TRS Stereo) Belegung:
+### Paddle 3.5 mm plug (TRS stereo) pinout
 
-![Paddle Klinkenbuchsen Belegung](connector_pinout.jpg)
+![Paddle jack pinout](connector_pinout.jpg)
 
 ---
 
-## 3. LilyGO T-Display v1.1 Header-Belegung (Blick von oben auf das Display)
+## 3. LilyGO T-Display v1.1 header pinout (top view, display facing you)
 
 ```text
                [ LILYGO T-DISPLAY v1.1 ]
               [ 1.14" IPS TFT DISPLAY ]
 
-     LINKER HEADER PIN-LEISTE          RECHTER HEADER PIN-LEISTE
+        LEFT PIN HEADER                    RIGHT PIN HEADER
     +------------------------+        +------------------------+
-    | [ ] 3V3  (Encoder VCC) |        | [ ] GND  (Gemeinsame Masse)
+    | [ ] 3V3  (Encoder VCC) |        | [ ] GND  (common ground)
     | [ ] GND  (Encoder GND) |        | [ ] 3V3                |
-    | [ ] GPIO 36 (VP)       |        | [ ] GPIO 21 (Buzzer - / BTL Boost)
-    | [ ] GPIO 37            |        | [ ] GPIO 22 (Buzzer + / Signal)
+    | [ ] GPIO 36 (VP)       |        | [ ] GPIO 21 (Buzzer - / BTL boost)
+    | [ ] GPIO 37            |        | [ ] GPIO 22 (Buzzer + / signal)
     | [ ] GPIO 38            |        | [ ] GPIO 17            |
     | [ ] GPIO 39 (VN)       |        | [ ] GPIO 2             |
     | [ ] GPIO 32 (Paddle DIT|        | [ ] GPIO 15            |
     | [ ] GPIO 33 (Paddle DAH|        | [ ] GPIO 12            |
     | [ ] GPIO 25 (Enc DT)   |        | [ ] GND                |
     | [ ] GPIO 26 (Enc CLK)  |        | [ ] GND                |
-    | [ ] GPIO 27 (Enc SW)   |        | [ ] 5V   (USB Power)   |
+    | [ ] GPIO 27 (Enc SW)   |        | [ ] 5V   (USB power)   |
     +------------------------+        +------------------------+
                | USB-C |
 ```
 
 ---
 
-## 4. Audio-Wiedergabe: Piezo vs. Dynamischer Lautsprecher
+## 4. Audio output: piezo vs. dynamic speaker
 
-### A. Passiver Piezo-Summer (Empfohlen für Direktanschluss)
-* **Wirkungsweise**: Spannungsgesteuert, kapazitiv (benötigt fast keinen Strom).
-* **Maximale Lautstärke**:
-  1. **Frequenz**: Im Menü die Tonhöhe auf die Eigenresonanz des Piezos einstellen (meist **1.800 Hz bis 2.400 Hz** $\rightarrow$ bis zu +20 dB lauter als bei 700 Hz!).
-  2. **BTL Push-Pull**: Minuspol von `GND` auf den Nachbarpin **`GPIO 21`** umstecken $\rightarrow$ 6,6V Peak-to-Peak (+6 dB Leistungsgewinn).
+### A. Passive piezo buzzer (recommended for direct connection)
+* **How it works**: voltage-driven and capacitive, it draws almost no current.
+* **Maximum volume**:
+  1. **Frequency**: set the tone pitch in the menu to the piezo's resonant frequency (usually **1,800 Hz to 2,400 Hz**, up to +20 dB louder than at 700 Hz).
+  2. **BTL push-pull**: move the minus lead from `GND` to the neighbouring pin **`GPIO 21`** for 6.6 V peak-to-peak (+6 dB more power).
+* Use a **passive** buzzer. An active buzzer has its own oscillator and ignores the tone pitch setting.
 
-### B. Dynamischer Mini-Lautsprecher (8 $\Omega$ oder 16 $\Omega$)
-* **Wirkungsweise**: Stromgesteuert ($I = U/R$).
-* ⚠️ **Achtung**: Ein 8-$\Omega$-Lautsprecher benötigt bei 3,3V über 400 mA. Ein ESP32-Pin kann aber **maximal 30–40 mA** liefern!
-* Wird ein 8-$\Omega$-Lautsprecher direkt an GPIO 22 angeschlossen, bricht das Signal auf ca. 0,5V ein und der Ton ist extrem leise.
-* **Treiber-Schaltung für Lautsprecher (5V Power)**:
+### B. Small dynamic speaker (8 Ω or 16 Ω)
+* **How it works**: current-driven (I = U/R).
+* ⚠️ **Caution**: an 8 Ω speaker needs more than 400 mA at 3.3 V, but an ESP32 pin can deliver **30–40 mA at most**.
+* If an 8 Ω speaker is connected directly to GPIO 22, the signal collapses to about 0.5 V and the tone is very quiet.
+* **Speaker driver circuit (5 V supply)**:
   ```text
-  GPIO 22 ───[ 1 kΩ ]─── Base (Transistor 2N2222 / BC547)
+  GPIO 22 ───[ 1 kΩ ]─── Base (transistor 2N2222 / BC547)
                          Emitter ─── GND
-                         Collector ─── Lautsprecher (-)
-                                       Lautsprecher (+) ─── 5V (LilyGO 5V Pin)
+                         Collector ─── Speaker (-)
+                                       Speaker (+) ─── 5V (LilyGO 5V pin)
   ```
-  *(Alternativ: PAM8403 Mini-Verstärker-Modul für ca. 1 €).*
+  *(Alternative: a PAM8403 mini amplifier module for about 1 €.)*
 
 ---
 
-## 5. Häufige Fehlerquellen & Praxistipps
+## 5. Common mistakes and practical tips
 
-1. **Encoder dreht verkehrt herum**:
-   Falls die WPM-Zahl beim Drehen im Uhrzeigersinn kleiner statt größer wird: einfach **GPIO 25 (DT)** und **GPIO 26 (CLK)** vertauschen.
-2. **Entprell-Kondensatoren am Paddle (Optional)**:
-   Bei sehr harten mechanischen Kontakten kann je ein 100 nF Keramikkondensator zwischen **GPIO 32 und GND** sowie **GPIO 33 und GND** angelötet werden.
-3. **Masse-Leitungen**:
-   Paddle-Schaft, Piezo-Minus (bei Standardanschluss) und Encoder-GND können problemlos auf einer gemeinsamen Masse-Leiste zusammengefasst werden.
+1. **Encoder turns the wrong way**:
+   If the WPM value goes down when you turn clockwise, swap **GPIO 25 (DT)** and **GPIO 26 (CLK)**.
+2. **Debounce capacitors on the paddle (optional)**:
+   With very hard mechanical contacts, solder a 100 nF ceramic capacitor between **GPIO 32 and GND** and another between **GPIO 33 and GND**.
+3. **Ground wires**:
+   Paddle sleeve, piezo minus (standard connection) and encoder GND can all share one common ground rail.

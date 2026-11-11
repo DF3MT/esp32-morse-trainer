@@ -25,6 +25,10 @@ public:
     // Push WPM update
     static void pushWpm(int wpm);
 
+    // Set UI language of the web terminal (ISO 639-1 code, e.g. "de", "en").
+    // Connected browsers switch immediately.
+    static void setLanguage(const char* code);
+
     // Clear history text buffer
     static void clearHistory();
 
